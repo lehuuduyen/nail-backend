@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>Helcim Pay</title>
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      height: 100%;
+      width: 100%;
+      background: #ececec;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    #status {
+      padding: 16px;
+      font-size: 14px;
+      color: #333;
+      text-align: center;
+    }
+    #err {
+      color: #b00020;
+      padding: 16px;
+      font-weight: 600;
+      text-align: center;
+    }
+    #helpBox {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 2147483650;
+      max-width: min(400px, calc(100vw - 16px));
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+      font-size: 12px;
+      line-height: 1.45;
+      color: #222;
+    }
+    #helpBox summary {
+      cursor: pointer;
+      font-weight: 700;
+      padding: 10px 12px;
+      list-style: none;
+    }
+    #helpBox summary::-webkit-details-marker { display: none; }
+    #helpBox .helpInner {
+      padding: 0 12px 12px;
+      border-top: 1px solid #eee;
+    }
+    #helpBox ul { margin: 8px 0 0; padding-left: 18px; }
+    #helpBox code { font-size: 11px; background: #f5f5f5; padding: 1px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <details id="helpBox" open>
+    <summary>Không thấy form? (cookie / token)</summary>
+    <div class="helpInner">
+      <ul>
+        <li><strong>Chrome:</strong> nếu có dòng “Third-party cookies blocked” / biểu tượng mắt gạch → bấm vào → <strong>cho phép cookie</strong> cho trang <code>192.168…</code> (Helcim + reCAPTCHA cần).</li>
+        <li><strong>Token <code>t=</code></strong> phải là <code>checkoutToken</code> trả về từ <code>POST /api/helcim/checkout</code> khi bấm <strong>Card</strong> trong POS — <em>không</em> gõ tay vài ký tự (ví dụ <code>lksadsa</code> sẽ không bao giờ mở form).</li>
+        <li><strong>Helcim Dashboard:</strong> tắt <strong>Require Captcha</strong> cho cấu hình Pay.js gắn API token backend.</li>
+        <li>Trang chạy <strong>HTTP</strong> trên LAN vẫn được; nếu vẫn lỗi, thử HTTPS (reverse proxy) cho backend.</li>
+      </ul>
+    </div>
+  </details>
+  <p id="status">Đang tải Helcim Pay…</p>
+  <p id="err" style="display:none;"></p>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var TOKEN = params.get('t');
+      var statusEl = document.getElementById('status');
+      var payOpened = false;
+      var scriptDone = false;
+      var isRNWebView =
+        typeof window.ReactNativeWebView !== 'undefined' &&
+        window.ReactNativeWebView &&
+        typeof window.ReactNativeWebView.postMessage === 'function';
+
+      /** Token thật từ Helcim initialize thường dài (~20+ ký tự hex). */
+      var MIN_TOKEN_LEN = 18;
+
+      function showErr(msg) {
+        if (statusEl) statusEl.style.display = 'none';
+        var el = document.getElementById('err');
+        el.style.display = 'block';
+        el.textContent = msg;
+      }
+
+      function send(obj) {
+        try {
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+          }
+        } catch (e) {}
+      }
+
+      function parseMessageData(raw) {
+        if (raw == null) return null;
+        if (typeof raw === 'string') {
+          try {
+            return JSON.parse(raw);
+          } catch (e) {
+            return null;
+          }
+        }
+        return typeof raw === 'object' ? raw : null;
+      }
+
+      if (!TOKEN) {
+        showErr('Thiếu checkout token.');
+        send({ type: 'helcim', status: 'ABORTED', message: 'Thiếu token' });
+        return;
+      }
+
+      TOKEN = String(TOKEN).trim();
+      if (TOKEN.length < MIN_TOKEN_LEN) {
+        showErr(
+          'Token checkout không hợp lệ (quá ngắn: ' +
+            TOKEN.length +
+            ' ký tự). Trong app POS bấm thanh toán Card để backend tạo token — không mở tay URL với chữ tự bịa.'
+        );
+        send({
+          type: 'helcim',
+          status: 'ABORTED',
+          message: 'Invalid checkout token (too short)',
+        });
+        return;
+      }
+
+      window.addEventListener('message', function (event) {
+        var d = parseMessageData(event.data);
+        if (!d) return;
+        var key = 'helcim-pay-js-' + TOKEN;
+        if (d.eventName !== key) return;
+        if (d.eventStatus === 'SUCCESS') {
+          send({ type: 'helcim', status: 'SUCCESS', message: d.eventMessage });
+          return;
+        }
+        if (d.eventStatus === 'ABORTED') {
+          send({ type: 'helcim', status: 'ABORTED', message: d.eventMessage || 'Declined' });
+          return;
+        }
+        if (d.eventStatus === 'HIDE') {
+          send({ type: 'helcim', status: 'HIDE' });
+        }
+      });
+
+      var attempts = 0;
+      var maxAttempts = 150;
+      var domObserver = null;
+
+      /**
+       * Chỉ ép iframe full viewport trong RN WebView (clip transform).
+       * Trên Chrome desktop không ép — tránh làm vỡ layout modal Helcim.
+       */
+      function bolsterHelcimDom() {
+        if (!payOpened) return;
+        try {
+          document.documentElement.style.setProperty('height', '100%', 'important');
+          document.body.style.setProperty('min-height', '100%', 'important');
+          var iframes = document.querySelectorAll('iframe');
+          if (iframes.length && statusEl) {
+            statusEl.style.display = 'none';
+          }
+          for (var i = 0; i < iframes.length; i++) {
+            var el = iframes[i];
+            if (isRNWebView) {
+              el.style.setProperty('position', 'fixed', 'important');
+              el.style.setProperty('top', '0', 'important');
+              el.style.setProperty('left', '0', 'important');
+              el.style.setProperty('right', '0', 'important');
+              el.style.setProperty('bottom', '0', 'important');
+              el.style.setProperty('width', '100%', 'important');
+              el.style.setProperty('height', '100%', 'important');
+              el.style.setProperty('min-height', '100vh', 'important');
+              el.style.setProperty('min-height', '100dvh', 'important');
+              el.style.setProperty('max-height', 'none', 'important');
+              el.style.setProperty('z-index', '2147483646', 'important');
+              el.style.setProperty('border', '0', 'important');
+              el.style.setProperty('visibility', 'visible', 'important');
+              el.style.setProperty('opacity', '1', 'important');
+              el.style.setProperty('display', 'block', 'important');
+            }
+            var p = el.parentElement;
+            var depth = 0;
+            while (p && p !== document.documentElement && depth < 12) {
+              p.style.setProperty('transform', 'none', 'important');
+              p.style.setProperty('-webkit-transform', 'none', 'important');
+              p.style.setProperty('filter', 'none', 'important');
+              p.style.setProperty('perspective', 'none', 'important');
+              p.style.setProperty('contain', 'none', 'important');
+              if (isRNWebView && depth <= 3 && p !== document.body) {
+                p.style.setProperty('position', 'fixed', 'important');
+                p.style.setProperty('top', '0', 'important');
+                p.style.setProperty('left', '0', 'important');
+                p.style.setProperty('right', '0', 'important');
+                p.style.setProperty('bottom', '0', 'important');
+                p.style.setProperty('width', '100%', 'important');
+                p.style.setProperty('height', '100%', 'important');
+                p.style.setProperty('overflow', 'visible', 'important');
+                p.style.setProperty('z-index', String(2147483630 + depth), 'important');
+              }
+              p = p.parentElement;
+              depth++;
+            }
+          }
+        } catch (e) {}
+      }
+
+      function startHelcimDomWatch() {
+        if (domObserver) return;
+        var t;
+        function debounced() {
+          clearTimeout(t);
+          t = setTimeout(bolsterHelcimDom, 40);
+        }
+        domObserver = new MutationObserver(debounced);
+        domObserver.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['src', 'style', 'class'],
+        });
+        debounced();
+        [0, 100, 350, 800, 1600, 3200].forEach(function (ms) {
+          setTimeout(bolsterHelcimDom, ms);
+        });
+      }
+
+      function openPay() {
+        if (typeof appendHelcimPayIframe === 'function') {
+          try {
+            appendHelcimPayIframe(TOKEN, true);
+            payOpened = true;
+            if (statusEl) statusEl.textContent = 'Mở form thanh toán…';
+            startHelcimDomWatch();
+            bolsterHelcimDom();
+            send({ type: 'helcim', status: 'READY' });
+            setTimeout(function () {
+              if (!payOpened) return;
+              var n = document.querySelectorAll('iframe').length;
+              if (n === 0) {
+                showErr(
+                  'Helcim không chèn iframe — token có thể hết hạn/sai, hoặc cookie/script bị chặn. Thử token mới từ app và bật cookie bên thứ ba (xem ô hướng dẫn).'
+                );
+                send({
+                  type: 'helcim',
+                  status: 'ABORTED',
+                  message: 'No Helcim iframe (token or cookies)',
+                });
+              }
+            }, 10000);
+          } catch (e) {
+            showErr('Lỗi mở Helcim: ' + (e && e.message ? e.message : String(e)));
+            send({
+              type: 'helcim',
+              status: 'ABORTED',
+              message: e && e.message ? e.message : 'appendHelcimPayIframe error',
+            });
+          }
+          return;
+        }
+        attempts += 1;
+        if (attempts >= maxAttempts) {
+          showErr(
+            'Không tải được Helcim Pay.js — kiểm tra mạng / chặn script / VPN.'
+          );
+          send({ type: 'helcim', status: 'ABORTED', message: 'Pay.js không tải' });
+          return;
+        }
+        setTimeout(openPay, 100);
+      }
+
+      function startAfterScript() {
+        scriptDone = true;
+        setTimeout(openPay, 250);
+      }
+
+      var scr = document.createElement('script');
+      scr.type = 'text/javascript';
+      scr.async = true;
+      scr.src = 'https://secure.helcim.app/helcim-pay/services/start.js';
+      scr.onload = startAfterScript;
+      scr.onerror = function () {
+        showErr('Không tải được start.js từ secure.helcim.app.');
+        send({ type: 'helcim', status: 'ABORTED', message: 'start.js load error' });
+      };
+      document.head.appendChild(scr);
+
+      setTimeout(function () {
+        if (!scriptDone) {
+          showErr('Tải script Helcim quá lâu — kiểm tra kết nối.');
+          send({ type: 'helcim', status: 'ABORTED', message: 'start.js timeout' });
+        }
+      }, 25000);
+    })();
+  </script>
+</body>
+</html>
