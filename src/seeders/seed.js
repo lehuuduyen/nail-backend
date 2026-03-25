@@ -99,22 +99,32 @@ async function run() {
   });
   await Appointment.bulkCreate(apptRows);
 
-  const u = (id) =>
-    `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=800&q=80`;
-  await Gallery.bulkCreate([
-    { imageUrl: u('1519014815893-47d9d7bbc588'), category: 'manicure', title: 'Classic French', displayOrder: 1 },
-    { imageUrl: u('1604654894610-df63bc536371'), category: 'gel', title: 'Gel shine', displayOrder: 2 },
-    { imageUrl: u('1522335789203-aabd1fc54bc9'), category: 'pedicure', title: 'Spa pedi', displayOrder: 3 },
-    { imageUrl: u('1610997527762-d227582c8d25'), category: 'acrylic', title: 'Acrylic set', displayOrder: 4 },
-    { imageUrl: u('1596462502278-27bfdc403348'), category: 'nail_art', title: 'Nail art', displayOrder: 5 },
-    { imageUrl: u('1516975080664-2c7fe9f1a9a6'), category: 'manicure', title: 'Elegant nude', displayOrder: 6 },
-    { imageUrl: u('1507003211169-0a1dd7228f2d'), category: 'other', title: 'Salon moment', displayOrder: 7 },
-    { imageUrl: u('1560066984-138dadb4c035'), category: 'pedicure', title: 'Summer toes', displayOrder: 8 },
-    { imageUrl: u('1596178065887-1198b6148b2b'), category: 'gel', title: 'Chrome gel', displayOrder: 9 },
-  ]);
+  /** Ảnh từ gallery salon: shared/gallerySeed.json (nicenailsphoenix.com/Home/Gallery) */
+  const gallerySeed = require(path.join(__dirname, '../../../shared/gallerySeed.json'));
+  function galleryCategory(file) {
+    const n = String(file).toLowerCase();
+    if (n.includes('pedicure')) return 'pedicure';
+    if (n.includes('manicure')) return 'manicure';
+    if (n.includes('aryclic') || n.includes('acrylic')) return 'acrylic';
+    return 'other';
+  }
+  function galleryTitle(file) {
+    const base = String(file).replace(/\.[^.]+$/, '');
+    if (/^IMG_\d+$/i.test(base)) return 'Nice Nails & Spa';
+    return base.replace(/_/g, ' ');
+  }
+  const gBase = gallerySeed.baseUrl.replace(/\/?$/, '/');
+  await Gallery.bulkCreate(
+    gallerySeed.files.map((file, i) => ({
+      imageUrl: `${gBase}${file}`,
+      category: galleryCategory(file),
+      title: galleryTitle(file),
+      displayOrder: i + 1,
+    }))
+  );
 
   console.log(
-    `Seed completed: admin / admin123, 7 employees, ${serviceMenuSeed.length} menu services, 20 transactions, appointments, gallery.`
+    `Seed completed: admin / admin123, 7 employees, ${serviceMenuSeed.length} menu services, 20 transactions, appointments, ${gallerySeed.files.length} gallery images.`
   );
   await sequelize.close();
   process.exit(0);
