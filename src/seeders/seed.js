@@ -9,6 +9,7 @@ const {
   Transaction: Txn,
   Appointment,
   Gallery,
+  BlogPost,
 } = require('../models');
 
 function ymd(y, m, d) {
@@ -19,7 +20,7 @@ async function run() {
   await sequelize.authenticate();
 
   await sequelize.query(
-    'TRUNCATE TABLE payrolls, transactions, appointments, galleries, services, employees, users RESTART IDENTITY CASCADE;'
+    'TRUNCATE TABLE payrolls, transactions, appointments, galleries, blog_posts, services, employees, users RESTART IDENTITY CASCADE;'
   );
 
   const passwordHash = await bcrypt.hash('admin123', 10);
@@ -123,8 +124,11 @@ async function run() {
     }))
   );
 
+  const blogSeed = require('./blogSeed');
+  await BlogPost.bulkCreate(blogSeed);
+
   console.log(
-    `Seed completed: admin / admin123, 7 employees, ${serviceMenuSeed.length} menu services, 20 transactions, appointments, ${gallerySeed.files.length} gallery images.`
+    `Seed completed: admin / admin123, 7 employees, ${serviceMenuSeed.length} menu services, 20 transactions, appointments, ${gallerySeed.files.length} gallery images, ${blogSeed.length} blog posts.`
   );
   await sequelize.close();
   process.exit(0);
