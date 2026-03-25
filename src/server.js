@@ -10,6 +10,9 @@ const { sequelize } = require('./models');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+/** Set true after first successful sequelize.authenticate (for /health/ready). */
+let dbReady = false;
+
 app.use(cors());
 app.use(
   express.json({
@@ -24,6 +27,12 @@ app.use(morgan('dev'));
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'nail-backend' });
 });
+app.get('/health/ready', (req, res) => {
+  if (!dbReady) {
+    return res.status(503).json({ ok: false, database: false });
+  }
+  res.json({ ok: true, database: true });
+});
 app.use(
   '/uploads',
   express.static(path.join(__dirname, '../public/uploads'))
@@ -37,14 +46,24 @@ if (!process.env.JWT_SECRET) {
   console.warn('WARNING: JWT_SECRET is not set');
 }
 
-sequelize
-  .authenticate()
-  .then(() => {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`nail-backend listening on http://127.0.0.1:${PORT}`);
+function connectDatabase() {
+  return sequelize
+    .authenticate()
+    .then(() => {
+      dbReady = true;
+      console.log('Database connection OK');
+    })
+    .catch((err) => {
+      dbReady = false;
+      console.error('Database connection failed:', err.message);
+      console.error(
+        'Fix DATABASE_URL (Railway Postgres → Variables) then redeploy or wait for retry.'
+      );
+      setTimeout(connectDatabase, 5000);
     });
-  })
-  .catch((err) => {
-    console.error('Database connection failed:', err.message);
-    process.exit(1);
-  });
+}
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`nail-backend listening on http://0.0.0.0:${PORT}`);
+  connectDatabase();
+});
