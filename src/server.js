@@ -26,12 +26,17 @@ function connectDatabase(sequelize) {
   return sequelize
     .authenticate()
     .then(() => {
+      console.log('Database connection OK — syncing schema...');
+      // alter: true → thêm cột mới, KHÔNG xóa data cũ
+      return sequelize.sync({ alter: true });
+    })
+    .then(() => {
       dbReady = true;
-      console.log('Database connection OK');
+      console.log('Database schema synced OK');
     })
     .catch((err) => {
       dbReady = false;
-      console.error('Database connection failed:', err.message);
+      console.error('Database connection/sync failed:', err.message);
       console.error(
         'Fix DATABASE_URL (Railway Postgres → Variables) then redeploy or wait for retry.'
       );
@@ -61,7 +66,6 @@ function mountAppStack() {
     '/uploads',
     express.static(path.join(__dirname, '../public/uploads'))
   );
-  /** Trang Pay.js cho POS WebView — origin thật giúp reCAPTCHA / cookie bên thứ ba ổn định hơn */
   app.use(express.static(path.join(__dirname, '../public')));
   app.use('/api', routes);
   app.use(errorHandler);
@@ -73,7 +77,6 @@ function mountAppStack() {
   connectDatabase(sequelize);
 }
 
-// Default bind (no host): IPv6 :: when available (often dual-stack) — avoids IPv6-only healthcheck issues vs 0.0.0.0-only.
 app.listen(PORT, () => {
   console.log(`nail-backend listening on port ${PORT}`);
   try {
