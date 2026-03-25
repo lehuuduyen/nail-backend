@@ -102,10 +102,15 @@ async function create(req, res, next) {
     }
 
     const content = String(b.content).trim();
-    const rm =
-      b.readingMinutes != null && b.readingMinutes !== ''
-        ? Math.max(1, Math.min(120, parseInt(b.readingMinutes, 10) || 0)) || readingMinutesFromContent(content)
-        : readingMinutesFromContent(content);
+    let rm;
+    if (b.readingMinutes != null && b.readingMinutes !== '') {
+      const n = parseInt(b.readingMinutes, 10);
+      rm = Number.isNaN(n)
+        ? readingMinutesFromContent(content)
+        : Math.max(1, Math.min(120, n));
+    } else {
+      rm = readingMinutesFromContent(content);
+    }
 
     const row = await BlogPost.create({
       slug,
