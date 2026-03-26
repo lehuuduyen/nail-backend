@@ -2,6 +2,8 @@
  * Bài viết blog SEO cho nail-website (Nice Nails & Spa, Phoenix AZ).
  * Nội dung plain text; đoạn cách nhau bằng \\n\\n khi hiển thị.
  */
+const blogPostsSeo2026 = require('./blogPostsSeo2026');
+
 module.exports = [
   {
     slug: 'choose-nail-salon-north-phoenix',
@@ -184,6 +186,7 @@ Salon paraffin dips and rich massage lotions during manicures add an extra boost
 
 If peeling or pain persists, skip aggressive cuticle cutting at home and let your tech trim safely during your visit. Healthy nails are the best base for any color trend the season brings.`,
   },
+  ...blogPostsSeo2026,
 ].map((p) => ({
   ...p,
   published: true,

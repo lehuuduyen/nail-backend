@@ -7,6 +7,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seeders/seed.js",
+    "seed:blog-seo": "node src/scripts/upsertSeoBlogPosts.js",
     "reset-admin": "node src/scripts/resetAdminPassword.js",
     "db:sync": "node -e \"require('dotenv').config(); require('./src/config/database').sync({ force: true }).then(() => { console.log('DB synced'); process.exit(0); }).catch((e) => { console.error(e); process.exit(1); })\"",
     "db:alter": "node -e \"require('dotenv').config(); require('./src/config/database').sync({ alter: true }).then(() => { console.log('DB alter OK'); process.exit(0); }).catch((e) => { console.error(e); process.exit(1); })\"",

@@ -112,12 +112,31 @@ async function create(req, res, next) {
       rm = readingMinutesFromContent(content);
     }
 
+    const metaTitle =
+      b.metaTitle != null && String(b.metaTitle).trim()
+        ? String(b.metaTitle).trim().slice(0, 220)
+        : null;
+    let faqs = null;
+    if (b.faqs != null && b.faqs !== '') {
+      if (Array.isArray(b.faqs)) {
+        faqs = b.faqs;
+      } else if (typeof b.faqs === 'string') {
+        try {
+          faqs = JSON.parse(b.faqs);
+        } catch {
+          faqs = null;
+        }
+      }
+    }
+
     const row = await BlogPost.create({
       slug,
       title: String(b.title).trim(),
+      metaTitle,
       excerpt: String(b.excerpt).trim(),
       content,
       metaDescription: String(b.metaDescription).trim().slice(0, 320),
+      faqs,
       keywords: b.keywords != null ? String(b.keywords).trim().slice(0, 500) : null,
       published: b.published !== false && b.published !== 'false',
       publishedAt: parsePublishedAt(b.publishedAt),
@@ -165,9 +184,28 @@ async function update(req, res, next) {
     }
 
     if (b.title != null) row.title = String(b.title).trim();
+    if (b.metaTitle !== undefined) {
+      row.metaTitle =
+        b.metaTitle == null || String(b.metaTitle).trim() === ''
+          ? null
+          : String(b.metaTitle).trim().slice(0, 220);
+    }
     if (b.excerpt != null) row.excerpt = String(b.excerpt).trim();
     if (b.content != null) row.content = String(b.content).trim();
     if (b.metaDescription != null) row.metaDescription = String(b.metaDescription).trim().slice(0, 320);
+    if (b.faqs !== undefined) {
+      if (b.faqs == null || b.faqs === '') {
+        row.faqs = null;
+      } else if (Array.isArray(b.faqs)) {
+        row.faqs = b.faqs;
+      } else if (typeof b.faqs === 'string') {
+        try {
+          row.faqs = JSON.parse(b.faqs);
+        } catch {
+          row.faqs = null;
+        }
+      }
+    }
     if (b.keywords !== undefined) {
       row.keywords = b.keywords == null || b.keywords === '' ? null : String(b.keywords).trim().slice(0, 500);
     }
