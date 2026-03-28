@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+const { Op, fn, literal } = require('sequelize');
 const { Service, Transaction: Txn, sequelize } = require('../models');
 
 async function list(req, res, next) {
@@ -84,7 +84,7 @@ async function getPopularServices(req, res, next) {
       attributes: [
         'serviceId',
         [sequelize.fn('COUNT', sequelize.col('Transaction.id')), 'transactionCount'],
-        [sequelize.fn('SUM', sequelize.col('amount')), 'totalRevenue'],
+        [fn('SUM', literal('(COALESCE(amount, 0) - COALESCE(tips, 0))')), 'totalRevenue'],
       ],
       group: ['serviceId'],
       raw: true,

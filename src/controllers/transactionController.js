@@ -1,4 +1,4 @@
-const { Op, fn, col, QueryTypes } = require('sequelize');
+const { Op, fn, col, QueryTypes, literal } = require('sequelize');
 const {
   Transaction: Txn,
   Appointment,
@@ -111,6 +111,92 @@ async function list(req, res, next) {
   }
 }
 
+async function update(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id < 1) {
+      const e = new Error('Invalid id');
+      e.status = 400;
+      throw e;
+    }
+    const row = await Txn.findByPk(id);
+    if (!row) {
+      const e = new Error('Transaction not found');
+      e.status = 404;
+      throw e;
+    }
+
+    const {
+      employeeId,
+      serviceId,
+      amount,
+      tips,
+      paymentMethod,
+      date,
+      notes,
+    } = req.body;
+
+    const patch = {};
+    if (employeeId != null) {
+      const eid = Number(employeeId);
+      if (!Number.isFinite(eid) || eid < 1) {
+        const e = new Error('Invalid employeeId');
+        e.status = 400;
+        throw e;
+      }
+      patch.employeeId = eid;
+    }
+    if (serviceId != null) {
+      const sid = Number(serviceId);
+      if (!Number.isFinite(sid) || sid < 1) {
+        const e = new Error('Invalid serviceId');
+        e.status = 400;
+        throw e;
+      }
+      patch.serviceId = sid;
+    }
+    if (amount != null) {
+      const a = Number(amount);
+      if (!Number.isFinite(a) || a < 0) {
+        const e = new Error('Invalid amount');
+        e.status = 400;
+        throw e;
+      }
+      patch.amount = a;
+    }
+    if (tips != null) {
+      const t = Number(tips);
+      if (!Number.isFinite(t) || t < 0) {
+        const e = new Error('Invalid tips');
+        e.status = 400;
+        throw e;
+      }
+      patch.tips = t;
+    }
+    if (paymentMethod != null) patch.paymentMethod = paymentMethod;
+    if (date != null) {
+      const d = String(date).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        const e = new Error('Invalid date (use YYYY-MM-DD)');
+        e.status = 400;
+        throw e;
+      }
+      patch.date = d;
+    }
+    if (notes !== undefined) {
+      patch.notes = notes == null || notes === '' ? null : String(notes).slice(0, 5000);
+    }
+
+    await row.update(patch);
+    const full = await Txn.findByPk(id, {
+      include: [Employee, Service, Appointment],
+    });
+    res.json(full);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getDailyRevenue(req, res, next) {
   try {
     const { date } = req.query;
@@ -150,7 +236,7 @@ async function getRevenueByPeriod(req, res, next) {
     const row = await Txn.findOne({
       where: { date: { [Op.between]: [start, end] } },
       attributes: [
-        [fn('SUM', col('amount')), 'totalAmount'],
+        [fn('SUM', literal('(COALESCE(amount, 0) - COALESCE(tips, 0))')), 'totalAmount'],
         [fn('SUM', col('tips')), 'totalTips'],
         [fn('COUNT', col('id')), 'transactionCount'],
       ],
@@ -174,7 +260,7 @@ async function getRevenueByEmployee(employeeId, start, end) {
       date: { [Op.between]: [start, end] },
     },
     attributes: [
-      [fn('SUM', col('amount')), 'totalAmount'],
+      [fn('SUM', literal('(COALESCE(amount, 0) - COALESCE(tips, 0))')), 'totalAmount'],
       [fn('SUM', col('tips')), 'totalTips'],
       [fn('COUNT', col('id')), 'transactionCount'],
     ],
@@ -198,9 +284,9 @@ async function getSummaryStats(req, res, next) {
     const totals = await Txn.findOne({
       where,
       attributes: [
-        [fn('SUM', col('amount')), 'totalRevenue'],
+        [fn('SUM', literal('(COALESCE(amount, 0) - COALESCE(tips, 0))')), 'totalRevenue'],
         [fn('COUNT', col('id')), 'totalTransactions'],
-        [fn('AVG', col('amount')), 'avgTransaction'],
+        [fn('AVG', literal('(COALESCE(amount, 0) - COALESCE(tips, 0))')), 'avgTransaction'],
       ],
       raw: true,
     });
@@ -208,7 +294,7 @@ async function getSummaryStats(req, res, next) {
     const topRows = await sequelize.query(
       `
       SELECT e.id AS "employeeId", e."firstName", e."lastName",
-             SUM(t.amount)::numeric AS revenue
+             SUM((t.amount::numeric - COALESCE(t.tips, 0))) AS revenue
       FROM transactions t
       INNER JOIN employees e ON e.id = t."employeeId"
       ${start && end ? 'WHERE t.date BETWEEN :start AND :end' : ''}
@@ -243,6 +329,7 @@ async function getSummaryStats(req, res, next) {
 module.exports = {
   create,
   list,
+  update,
   getDailyRevenue,
   getRevenueByPeriod,
   getRevenueByEmployee,

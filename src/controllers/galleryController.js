@@ -22,6 +22,10 @@ async function listAdmin(req, res, next) {
 async function list(req, res, next) {
   try {
     const { category } = req.query;
+    const limitRaw = parseInt(req.query.limit, 10);
+    const limit =
+      Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 120) : null;
+
     const where = { isActive: true };
     if (category && category !== 'all') {
       where.category = category;
@@ -32,6 +36,7 @@ async function list(req, res, next) {
         ['displayOrder', 'ASC'],
         ['id', 'DESC'],
       ],
+      ...(limit ? { limit } : {}),
     });
     res.json(rows);
   } catch (err) {

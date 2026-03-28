@@ -36,6 +36,31 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 0,
       },
+      /** Optional display rate (Bonus-Check column); not always same as commission. */
+      bonusCheckRate: {
+        type: DataTypes.DECIMAL(6, 4),
+        allowNull: true,
+      },
+      tipCredit: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+      },
+      cleanFee: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+      },
+      checkDue: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        comment: 'Amount due by check (POS override)',
+      },
+      ownerProfitAmount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        comment: 'Owner share from commission split for the period',
+      },
       totalPay: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
       status: {
         type: DataTypes.ENUM('draft', 'approved', 'paid'),

@@ -7,5 +7,6 @@ router.get('/revenue', transactionController.getRevenueByPeriod);
 router.get('/summary', transactionController.getSummaryStats);
 router.get('/', transactionController.list);
 router.post('/', transactionController.create);
+router.put('/:id', transactionController.update);
 
 module.exports = router;

@@ -1,8 +1,21 @@
 const { Op, fn, col } = require('sequelize');
 const { Payroll, Employee, Transaction: Txn, sequelize } = require('../models');
+const { salesExcludingTips } = require('../utils/transactionAmounts');
 
 function num(v) {
   return parseFloat(v == null ? 0 : v);
+}
+
+function techShareNormalized(emp) {
+  let t = parseInt(emp.commissionTechPct, 10);
+  let o = parseInt(emp.commissionOwnerPct, 10);
+  if (!Number.isFinite(t)) t = 100;
+  if (!Number.isFinite(o)) o = 0;
+  if (t < 0) t = 0;
+  if (o < 0) o = 0;
+  const sum = t + o;
+  if (sum <= 0) return 1;
+  return t / sum;
 }
 
 async function generatePayroll(req, res, next) {
@@ -37,7 +50,7 @@ async function generatePayroll(req, res, next) {
     });
 
     const totalServices = txs.length;
-    const totalRevenue = txs.reduce((s, t) => s + num(t.amount), 0);
+    const totalRevenue = txs.reduce((s, t) => s + salesExcludingTips(t), 0);
     const totalTipsRaw = txs.reduce((s, t) => s + num(t.tips), 0);
     const totalTips = employee.tipsEnabled ? totalTipsRaw : 0;
     const bonus = num(bonusAmount);
@@ -49,8 +62,7 @@ async function generatePayroll(req, res, next) {
     const hours = num(hoursWorked);
 
     if (employee.payType === 'commission') {
-      const rate = num(employee.commissionRate);
-      commissionAmount = totalRevenue * rate;
+      commissionAmount = totalRevenue * techShareNormalized(employee);
       totalPay = commissionAmount + totalTips + bonus;
     } else if (employee.payType === 'hourly') {
       const hr = num(employee.hourlyRate);

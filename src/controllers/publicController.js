@@ -29,6 +29,18 @@ function rangesOverlap(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
 
+const PUBLIC_SERVICE_CATEGORY_ORDER = [
+  'manicure',
+  'pedicure',
+  'nails',
+  'addon',
+  'kids',
+  'lash',
+  'waxing',
+  'head_spa',
+  'facial',
+];
+
 async function listServices(req, res, next) {
   try {
     const rows = await Service.findAll({
@@ -39,6 +51,52 @@ async function listServices(req, res, next) {
       ],
     });
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Grouped menu for nail-website (flat list + byCategory + ordered sections). */
+async function listServicesMenu(req, res, next) {
+  try {
+    const rows = await Service.findAll({
+      where: { isActive: true },
+      order: [
+        ['menuSort', 'ASC'],
+        ['id', 'ASC'],
+      ],
+    });
+    const plain = rows.map((r) => r.get({ plain: true }));
+    const byCategory = {};
+    for (const s of plain) {
+      const c = s.category || 'other';
+      if (!byCategory[c]) byCategory[c] = [];
+      byCategory[c].push(s);
+    }
+    const categories = [];
+    for (const slug of PUBLIC_SERVICE_CATEGORY_ORDER) {
+      if (byCategory[slug]?.length) {
+        categories.push({
+          slug,
+          count: byCategory[slug].length,
+          services: byCategory[slug],
+        });
+      }
+    }
+    for (const slug of Object.keys(byCategory)) {
+      if (!PUBLIC_SERVICE_CATEGORY_ORDER.includes(slug)) {
+        categories.push({
+          slug,
+          count: byCategory[slug].length,
+          services: byCategory[slug],
+        });
+      }
+    }
+    res.json({
+      services: plain,
+      byCategory,
+      categories,
+    });
   } catch (err) {
     next(err);
   }
@@ -369,6 +427,7 @@ function normalizePhoneE164(raw) {
 
 module.exports = {
   listServices,
+  listServicesMenu,
   listEmployees,
   getAvailability,
   bookPublic,

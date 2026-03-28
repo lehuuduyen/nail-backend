@@ -16,5 +16,7 @@ router.use('/payroll', authMiddleware, require('./payroll'));
 router.post('/helcim/webhook', helcimController.handleWebhook);
 router.use('/helcim', authMiddleware, require('./helcim'));
 router.use('/receipt', authMiddleware, require('./receipt'));
+router.use('/reports', require('./reports'));
+router.use('/salary', require('./salary'));
 
 module.exports = router;
