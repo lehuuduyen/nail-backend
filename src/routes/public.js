@@ -3,6 +3,7 @@ const router = express.Router();
 const publicController = require('../controllers/publicController');
 const blogController = require('../controllers/blogController');
 
+router.get('/salon', publicController.getSalonInfo);
 router.get('/services/menu', publicController.listServicesMenu);
 router.get('/services', publicController.listServices);
 router.get('/blog', blogController.listPublished);

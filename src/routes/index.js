@@ -12,6 +12,7 @@ router.use('/employees', authMiddleware, require('./employees'));
 router.use('/services', authMiddleware, require('./services'));
 router.use('/appointments', authMiddleware, require('./appointments'));
 router.use('/transactions', authMiddleware, require('./transactions'));
+router.use('/turns', require('./turns'));
 router.use('/payroll', authMiddleware, require('./payroll'));
 router.post('/helcim/webhook', helcimController.handleWebhook);
 router.use('/helcim', authMiddleware, require('./helcim'));

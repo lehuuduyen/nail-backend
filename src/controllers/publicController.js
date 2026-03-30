@@ -41,6 +41,12 @@ const PUBLIC_SERVICE_CATEGORY_ORDER = [
   'facial',
 ];
 
+/** Tên hiển thị tiệm — đồng bộ POS/app với SMS booking (`SALON_DISPLAY_NAME`). */
+function getSalonInfo(req, res) {
+  const name = process.env.SALON_DISPLAY_NAME || 'Nice Nails & Spa';
+  res.json({ name });
+}
+
 async function listServices(req, res, next) {
   try {
     const rows = await Service.findAll({
@@ -426,6 +432,7 @@ function normalizePhoneE164(raw) {
 }
 
 module.exports = {
+  getSalonInfo,
   listServices,
   listServicesMenu,
   listEmployees,

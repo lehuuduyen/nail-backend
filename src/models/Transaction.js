@@ -66,6 +66,25 @@ module.exports = (sequelize) => {
         defaultValue: 0,
       },
       refundReason: { type: DataTypes.TEXT, allowNull: true },
+      /** walk_in | customer_pick | owner_assign | appointment */
+      turnType: {
+        type: DataTypes.ENUM(
+          'walk_in',
+          'customer_pick',
+          'owner_assign',
+          'appointment'
+        ),
+        allowNull: false,
+        defaultValue: 'walk_in',
+      },
+      /** Thứ tự vé trong ngày (toàn salon), gán khi tạo transaction */
+      turnNumber: { type: DataTypes.INTEGER, allowNull: true },
+      /** Chỉ walk-in tính vào xoay lượt công bằng */
+      isCountedInRotation: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
     },
     {
       tableName: 'transactions',

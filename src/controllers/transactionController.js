@@ -7,6 +7,35 @@ const {
   sequelize,
 } = require('../models');
 
+const VALID_TURN_TYPES = new Set([
+  'walk_in',
+  'customer_pick',
+  'owner_assign',
+  'appointment',
+]);
+
+function normalizeTurnMeta({ appointmentId, turnType: rawTurn, isCountedInRotation: rawCounted }) {
+  if (appointmentId) {
+    return { turnType: 'appointment', isCountedInRotation: false };
+  }
+  const turnType = VALID_TURN_TYPES.has(rawTurn) ? rawTurn : 'walk_in';
+  const isCountedInRotation = turnType === 'walk_in';
+  return { turnType, isCountedInRotation };
+}
+
+async function nextTurnNumberForDate(dateStr) {
+  const row = await Txn.findOne({
+    where: {
+      date: dateStr,
+      paymentStatus: { [Op.ne]: 'refunded' },
+    },
+    order: [['turnNumber', 'DESC']],
+    attributes: ['turnNumber'],
+  });
+  const n = row?.turnNumber;
+  return Number.isFinite(Number(n)) ? Number(n) + 1 : 1;
+}
+
 async function create(req, res, next) {
   try {
     let {
@@ -26,6 +55,7 @@ async function create(req, res, next) {
       helcimApprovalCode,
       helcimFeeSaverAmount,
       paymentStatus,
+      turnType: bodyTurnType,
     } = req.body;
 
     const normalizedStatus =
@@ -57,6 +87,15 @@ async function create(req, res, next) {
       throw e;
     }
 
+    const dateStr = String(date).slice(0, 10);
+    const { turnType, isCountedInRotation } = normalizeTurnMeta({
+      appointmentId,
+      turnType: bodyTurnType,
+      isCountedInRotation: bodyCounted,
+    });
+
+    const turnNumber = await nextTurnNumberForDate(dateStr);
+
     const row = await Txn.create({
       appointmentId: appointmentId || null,
       employeeId,
@@ -64,7 +103,7 @@ async function create(req, res, next) {
       amount,
       tips,
       paymentMethod,
-      date,
+      date: dateStr,
       notes,
       customerId: customerId ?? null,
       helcimTransactionId: helcimTransactionId ?? null,
@@ -74,6 +113,9 @@ async function create(req, res, next) {
       helcimApprovalCode: helcimApprovalCode ?? null,
       helcimFeeSaverAmount: helcimFeeSaverAmount ?? 0,
       paymentStatus: normalizedStatus || 'approved',
+      turnType,
+      isCountedInRotation,
+      turnNumber,
     });
 
     const full = await Txn.findByPk(row.id, {
