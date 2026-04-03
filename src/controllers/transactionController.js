@@ -14,7 +14,7 @@ const VALID_TURN_TYPES = new Set([
   'appointment',
 ]);
 
-function normalizeTurnMeta({ appointmentId, turnType: rawTurn, isCountedInRotation: rawCounted }) {
+function normalizeTurnMeta({ appointmentId, turnType: rawTurn }) {
   if (appointmentId) {
     return { turnType: 'appointment', isCountedInRotation: false };
   }
@@ -91,7 +91,6 @@ async function create(req, res, next) {
     const { turnType, isCountedInRotation } = normalizeTurnMeta({
       appointmentId,
       turnType: bodyTurnType,
-      isCountedInRotation: bodyCounted,
     });
 
     const turnNumber = await nextTurnNumberForDate(dateStr);
@@ -239,6 +238,27 @@ async function update(req, res, next) {
   }
 }
 
+async function destroy(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id < 1) {
+      const e = new Error('Invalid id');
+      e.status = 400;
+      throw e;
+    }
+    const row = await Txn.findByPk(id);
+    if (!row) {
+      const e = new Error('Transaction not found');
+      e.status = 404;
+      throw e;
+    }
+    await row.destroy();
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getDailyRevenue(req, res, next) {
   try {
     const { date } = req.query;
@@ -372,6 +392,7 @@ module.exports = {
   create,
   list,
   update,
+  destroy,
   getDailyRevenue,
   getRevenueByPeriod,
   getRevenueByEmployee,

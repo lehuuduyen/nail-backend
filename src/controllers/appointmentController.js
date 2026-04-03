@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Appointment, Employee, Service } = require('../models');
+const { scheduledAtOnSalonDateLiteral } = require('../utils/salonAppointmentDay');
 
 async function list(req, res, next) {
   try {
@@ -65,7 +66,7 @@ async function getToday(req, res, next) {
   }
 }
 
-/** Appointments for one calendar day (local server TZ), excludes cancelled */
+/** Appointments for one calendar day theo SALON_TIMEZONE (khớp POS getSalonDateYmd), excludes cancelled */
 async function getByDay(req, res, next) {
   try {
     const dateStr = req.query.date;
@@ -74,12 +75,12 @@ async function getByDay(req, res, next) {
       e.status = 400;
       throw e;
     }
-    const start = new Date(`${dateStr}T00:00:00`);
-    const end = new Date(`${dateStr}T23:59:59.999`);
     const rows = await Appointment.findAll({
       where: {
-        scheduledAt: { [Op.between]: [start, end] },
-        status: { [Op.ne]: 'cancelled' },
+        [Op.and]: [
+          scheduledAtOnSalonDateLiteral(dateStr),
+          { status: { [Op.ne]: 'cancelled' } },
+        ],
       },
       include: [
         { model: Employee, attributes: ['id', 'firstName', 'lastName'] },

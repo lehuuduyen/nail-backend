@@ -1,16 +1,11 @@
 const { Op } = require('sequelize');
 const { Transaction, Employee, Appointment } = require('../models');
+const { scheduledAtOnSalonDateLiteral } = require('../utils/salonAppointmentDay');
 
 function parseYmd(q) {
   const s = q != null ? String(q).trim() : '';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
   return s;
-}
-
-function dayBoundsForQuery(dateStr) {
-  const start = new Date(`${dateStr}T00:00:00`);
-  const end = new Date(`${dateStr}T23:59:59.999`);
-  return { start, end };
 }
 
 const notRefunded = { [Op.ne]: 'refunded' };
@@ -27,8 +22,6 @@ async function getTodayTurns(req, res, next) {
       e.status = 400;
       throw e;
     }
-
-    const { start, end } = dayBoundsForQuery(dateStr);
 
     const employees = await Employee.findAll({
       where: { isActive: true },
@@ -50,11 +43,14 @@ async function getTodayTurns(req, res, next) {
 
         const turns = await Transaction.count({ where: rotationWhere });
 
+        /* Cùng nghĩa với /appointments/day: mọi lịch không hủy trong ngày lịch salon */
         const appointments = await Appointment.count({
           where: {
-            employeeId: emp.id,
-            scheduledAt: { [Op.between]: [start, end] },
-            status: { [Op.in]: ['scheduled', 'in_progress'] },
+            [Op.and]: [
+              scheduledAtOnSalonDateLiteral(dateStr),
+              { employeeId: emp.id },
+              { status: { [Op.ne]: 'cancelled' } },
+            ],
           },
         });
 

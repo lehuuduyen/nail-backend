@@ -8,5 +8,6 @@ router.get('/summary', transactionController.getSummaryStats);
 router.get('/', transactionController.list);
 router.post('/', transactionController.create);
 router.put('/:id', transactionController.update);
+router.delete('/:id', transactionController.destroy);
 
 module.exports = router;
