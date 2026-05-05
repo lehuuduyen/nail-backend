@@ -94,4 +94,29 @@ async function getByDay(req, res, next) {
   }
 }
 
-module.exports = { list, create, update, getToday, getByDay };
+async function getNewWebBookings(req, res, next) {
+  try {
+    const since = req.query.since ? new Date(req.query.since) : new Date(Date.now() - 60_000);
+    if (isNaN(since.getTime())) {
+      const e = new Error('Invalid since timestamp');
+      e.status = 400;
+      throw e;
+    }
+    const rows = await Appointment.findAll({
+      where: {
+        source: 'web',
+        createdAt: { [Op.gt]: since },
+      },
+      include: [
+        { model: Employee, attributes: ['id', 'firstName', 'lastName'] },
+        { model: Service, attributes: ['id', 'name'] },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, create, update, getToday, getByDay, getNewWebBookings };

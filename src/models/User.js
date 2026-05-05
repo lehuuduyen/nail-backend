@@ -23,6 +23,10 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 'manager',
       },
+      pushToken: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+      },
     },
     {
       tableName: 'users',

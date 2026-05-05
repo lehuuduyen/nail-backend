@@ -28,6 +28,10 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      customerPhone: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
       amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
       tips: {
         type: DataTypes.DECIMAL(10, 2),
@@ -77,6 +81,8 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 'walk_in',
       },
+      /** ID nhóm vé — tất cả dòng trong cùng 1 lần thanh toán dùng chung giá trị này */
+      ticketId: { type: DataTypes.STRING(32), allowNull: true },
       /** Thứ tự vé trong ngày (toàn salon), gán khi tạo transaction */
       turnNumber: { type: DataTypes.INTEGER, allowNull: true },
       /** Chỉ walk-in tính vào xoay lượt công bằng */

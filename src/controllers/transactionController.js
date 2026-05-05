@@ -48,6 +48,7 @@ async function create(req, res, next) {
       date,
       notes,
       customerId,
+      customerPhone,
       helcimTransactionId,
       helcimInvoiceNumber,
       helcimCardType,
@@ -56,6 +57,7 @@ async function create(req, res, next) {
       helcimFeeSaverAmount,
       paymentStatus,
       turnType: bodyTurnType,
+      ticketId,
     } = req.body;
 
     const normalizedStatus =
@@ -105,6 +107,7 @@ async function create(req, res, next) {
       date: dateStr,
       notes,
       customerId: customerId ?? null,
+      customerPhone: customerPhone ?? null,
       helcimTransactionId: helcimTransactionId ?? null,
       helcimInvoiceNumber: helcimInvoiceNumber ?? null,
       helcimCardType: helcimCardType ?? null,
@@ -115,6 +118,7 @@ async function create(req, res, next) {
       turnType,
       isCountedInRotation,
       turnNumber,
+      ticketId: ticketId ?? null,
     });
 
     const full = await Txn.findByPk(row.id, {

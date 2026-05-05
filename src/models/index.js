@@ -8,6 +8,7 @@ const Transaction = require('./Transaction')(sequelize);
 const Payroll = require('./Payroll')(sequelize);
 const Gallery = require('./Gallery')(sequelize);
 const BlogPost = require('./BlogPost')(sequelize);
+const Customer = require('./Customer')(sequelize);
 
 Employee.hasMany(Appointment, { foreignKey: 'employeeId' });
 Appointment.belongsTo(Employee, { foreignKey: 'employeeId' });
@@ -37,4 +38,5 @@ module.exports = {
   Payroll,
   Gallery,
   BlogPost,
+  Customer,
 };
