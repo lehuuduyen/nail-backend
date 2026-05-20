@@ -86,4 +86,19 @@ async function getMe(req, res, next) {
   }
 }
 
-module.exports = { register, login, getMe };
+async function updatePushToken(req, res, next) {
+  try {
+    const { pushToken } = req.body;
+    if (!pushToken || typeof pushToken !== 'string') {
+      const e = new Error('pushToken required');
+      e.status = 400;
+      throw e;
+    }
+    await User.update({ pushToken }, { where: { id: req.user.userId } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, getMe, updatePushToken };

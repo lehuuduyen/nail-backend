@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { Appointment, Employee, Service } = require('../models');
+const { Appointment, Employee, Service, User } = require('../models');
+const { sendExpoPush } = require('../services/expoPush');
 
 const SLOT_MINUTES = 30;
 
@@ -386,6 +387,28 @@ async function bookPublic(req, res, next) {
       });
     } catch (smsErr) {
       console.warn('SMS skipped:', smsErr.message);
+    }
+
+    // Send push notification to all staff devices
+    try {
+      const staffUsers = await User.findAll({
+        where: { pushToken: { [Op.ne]: null } },
+        attributes: ['pushToken'],
+      });
+      const tokens = staffUsers.map((u) => u.pushToken).filter(Boolean);
+      if (tokens.length) {
+        const timeStr = new Date(row.scheduledAt).toLocaleString('en-US', {
+          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+        });
+        await sendExpoPush(
+          tokens,
+          'New Online Booking 📅',
+          `${row.customerName} — ${service.name} at ${timeStr}`,
+          { appointmentId: row.id, type: 'new_booking' }
+        );
+      }
+    } catch (pushErr) {
+      console.warn('Push skipped:', pushErr.message);
     }
 
     res.status(201).json({
