@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs').promises;
+const axios = require('axios');
 const { Gallery } = require('../models');
 
 const PUBLIC_BASE =
@@ -129,4 +130,61 @@ async function remove(req, res, next) {
   }
 }
 
-module.exports = { list, listAdmin, create, update, remove };
+async function createFromUrl(req, res, next) {
+  try {
+    const { url, category = 'other', displayOrder = 0 } = req.body;
+    if (!url) {
+      const e = new Error('url is required');
+      e.status = 400;
+      throw e;
+    }
+
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'image/webp,image/apng,image/*,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Referer: 'https://www.instagram.com/',
+      },
+      timeout: 20000,
+      maxRedirects: 10,
+    });
+
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    const ext = contentType.includes('png')
+      ? '.png'
+      : contentType.includes('gif')
+        ? '.gif'
+        : contentType.includes('webp')
+          ? '.webp'
+          : '.jpg';
+
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    const uploadDir = path.join(__dirname, '../../public/uploads/gallery');
+    await fs.mkdir(uploadDir, { recursive: true });
+    await fs.writeFile(path.join(uploadDir, filename), response.data);
+
+    const rel = `/uploads/gallery/${filename}`;
+    const imageUrl = `${PUBLIC_BASE}${rel}`;
+
+    const row = await Gallery.create({
+      imageUrl,
+      thumbnailUrl: imageUrl,
+      category,
+      isActive: true,
+      displayOrder: parseInt(displayOrder, 10) || 0,
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    if (err.code === 'ERR_BAD_REQUEST' || err.response?.status) {
+      const e = new Error(`Failed to fetch image: HTTP ${err.response?.status || err.code}`);
+      e.status = 422;
+      return next(e);
+    }
+    next(err);
+  }
+}
+
+module.exports = { list, listAdmin, create, createFromUrl, update, remove };

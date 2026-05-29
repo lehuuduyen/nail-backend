@@ -58,6 +58,9 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 0,
       },
+      stripePaymentIntentId: { type: DataTypes.STRING(80), allowNull: true },
+      stripeCardBrand: { type: DataTypes.STRING(32), allowNull: true },
+      stripeCardLast4: { type: DataTypes.STRING(8), allowNull: true },
       paymentStatus: {
         type: DataTypes.STRING(24),
         allowNull: false,

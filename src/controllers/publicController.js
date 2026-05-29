@@ -273,15 +273,15 @@ async function bookPublic(req, res, next) {
       throw e;
     }
 
-    const y = slotDate.getFullYear();
-    const mo = String(slotDate.getMonth() + 1).padStart(2, '0');
-    const d = String(slotDate.getDate()).padStart(2, '0');
+    const y = slotDate.getUTCFullYear();
+    const mo = String(slotDate.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(slotDate.getUTCDate()).padStart(2, '0');
     const dateStr = `${y}-${mo}-${d}`;
     const { start: dayStart, end: dayEnd } = dateDayBounds(dateStr);
 
     const { openM, closeM } = dayMinutesBounds(dateStr);
-    const slotH = slotDate.getHours();
-    const slotMin = slotDate.getMinutes();
+    const slotH = slotDate.getUTCHours();
+    const slotMin = slotDate.getUTCMinutes();
     const slotM = slotH * 60 + slotMin;
     if (slotM < openM || slotM + duration > closeM) {
       const e = new Error('Selected time is outside business hours');
