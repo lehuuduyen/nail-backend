@@ -4,12 +4,12 @@
  * Or invoked by dailyBlogCron.js on a schedule.
  */
 require('dotenv').config();
-const Anthropic = require('@anthropic-ai/sdk');
+const Groq = require('groq-sdk');
 const { sequelize, BlogPost } = require('../models');
 
-const client = new Anthropic();
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY, timeout: 180_000 });
 
-// Topic pool — Claude picks from these to keep content varied
+// Topic pool — pick from these to keep content varied
 const TOPICS = [
   'gel nails vs acrylic nails phoenix',
   'how to make nail polish last longer',
@@ -79,20 +79,13 @@ const BLOG_SCHEMA = {
     slug: { type: 'string', description: 'URL-friendly slug, max 110 chars, lowercase, hyphens' },
     title: { type: 'string', description: 'SEO title, max 70 chars' },
     metaTitle: { type: 'string', description: 'Meta title for SEO, max 60 chars' },
-    metaDescription: {
-      type: 'string',
-      description: 'Meta description for SEO, 140-160 chars',
-    },
+    metaDescription: { type: 'string', description: 'Meta description for SEO, 140-160 chars' },
     excerpt: { type: 'string', description: '2-3 sentence teaser shown on blog listing page' },
     content: {
       type: 'string',
-      description:
-        'Full HTML blog post, 700-900 words. Must include at least 2 internal anchor links.',
+      description: 'Full HTML blog post, 700-900 words. Must include at least 2 internal anchor links.',
     },
-    keywords: {
-      type: 'string',
-      description: 'Comma-separated SEO keywords, up to 10 terms',
-    },
+    keywords: { type: 'string', description: 'Comma-separated SEO keywords, up to 10 terms' },
     faqs: {
       type: 'array',
       items: {
@@ -102,6 +95,7 @@ const BLOG_SCHEMA = {
           answer: { type: 'string' },
         },
         required: ['question', 'answer'],
+        additionalProperties: false,
       },
       description: '3 FAQ items for schema markup',
     },
@@ -118,50 +112,65 @@ const BLOG_SCHEMA = {
     'faqs',
     'readingMinutes',
   ],
+  additionalProperties: false,
 };
 
-async function generateBlogPost(topic) {
-  const systemPrompt = `You are an expert nail salon content writer for Nice Nails & Spa, a premier nail salon in Phoenix, AZ.
+const SYSTEM_PROMPT = `You are an expert nail salon content writer for Nice Nails & Spa, a premier nail salon in Phoenix, AZ.
 Write helpful, SEO-optimized blog posts in a warm, professional tone.
 
-Internal links you MUST include naturally in the content HTML (use <a href="..."> tags):
-- Services page: ${INTERNAL_LINKS.services}
-- Manicure services: ${INTERNAL_LINKS.manicure}
-- Pedicure services: ${INTERNAL_LINKS.pedicure}
+Internal links you MUST include naturally in the content HTML (use <a> tags with SINGLE quotes for attributes):
+- Services page: <a href='/services'>...</a>
+- Manicure services: <a href='/services/manicure'>...</a>
+- Pedicure services: <a href='/services/pedicure'>...</a>
 
+IMPORTANT: Always use single quotes (') for HTML attributes, never double quotes. This is critical for valid JSON output.
 Include at least 2 of the 3 links above per post. Link text should be natural (e.g., "our manicure services", "book a pedicure", "explore our services").
 
 Salon name: Nice Nails & Spa
 Location: Phoenix, Arizona
 Brand voice: Professional, welcoming, knowledgeable about nail care.`;
 
-  const userPrompt = `Write a complete SEO-optimized blog post about: "${topic}"
+async function generateBlogPost(topic) {
+  const response = await client.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    max_tokens: 4096,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: `Write a complete SEO-optimized blog post about: "${topic}"
 
 The post must:
 - Be geo-targeted to Phoenix, AZ where relevant
 - Include practical, useful information
 - Use proper HTML in the content field: <h2>, <p>, <ul>/<li>, <strong>
-- Naturally link to our services pages using <a> tags
+- Naturally link to our services pages using <a> tags — ALWAYS use single quotes for href (e.g., <a href='/services'>)
 - Include 3 FAQs that real customers would ask
-- Be 700-900 words in the content field`;
+- Be 700-900 words in the content field
 
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }],
-    output_config: {
-      format: {
-        type: 'json_schema',
-        name: 'blog_post',
-        schema: BLOG_SCHEMA,
-        strict: true,
+Respond ONLY with a valid JSON object matching this structure exactly:
+{
+  "slug": "url-friendly-slug-max-110-chars",
+  "title": "SEO title max 70 chars",
+  "metaTitle": "meta title max 60 chars",
+  "metaDescription": "meta description 140-160 chars",
+  "excerpt": "2-3 sentence teaser",
+  "content": "<h2>...</h2><p>full HTML post 700-900 words</p>",
+  "keywords": "keyword1, keyword2, up to 10 terms",
+  "faqs": [
+    { "question": "...", "answer": "..." },
+    { "question": "...", "answer": "..." },
+    { "question": "...", "answer": "..." }
+  ],
+  "readingMinutes": 4
+}`,
       },
-    },
+    ],
+    response_format: { type: 'json_object' },
   });
 
-  const text = response.content.find((b) => b.type === 'text')?.text;
-  if (!text) throw new Error('No text content in Claude response');
+  const text = response.choices[0]?.message?.content;
+  if (!text) throw new Error('No content in Groq response');
   return JSON.parse(text);
 }
 
@@ -174,7 +183,7 @@ async function main() {
 
   const post = await generateBlogPost(topic);
 
-  // Ensure slug is URL-safe (Claude might return slightly different format)
+  // Ensure slug is URL-safe
   post.slug = slugify(post.slug || topic);
 
   const payload = {
@@ -190,7 +199,7 @@ async function main() {
     published: true,
   };
 
-  const [row, created] = await BlogPost.findOrCreate({
+  const [, created] = await BlogPost.findOrCreate({
     where: { slug: post.slug },
     defaults: { slug: post.slug, ...payload },
   });

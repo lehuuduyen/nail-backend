@@ -20,6 +20,7 @@ module.exports = (sequelize) => {
       },
       isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
       displayOrder: { type: DataTypes.INTEGER, defaultValue: 0 },
+      sourceUrl: { type: DataTypes.STRING(500), allowNull: true, unique: true },
     },
     {
       tableName: 'galleries',

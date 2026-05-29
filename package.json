@@ -15,16 +15,21 @@
     "db:alter": "node -e \"require('dotenv').config(); require('./src/config/database').sync({ alter: true }).then(() => { console.log('DB alter OK'); process.exit(0); }).catch((e) => { console.error(e); process.exit(1); })\"",
     "test:helcim": "node src/scripts/testHelcim.js",
     "blog:generate": "node src/scripts/generateDailyBlogPost.js",
-    "blog:cron": "node src/scripts/dailyBlogCron.js"
+    "blog:cron": "node src/scripts/dailyBlogCron.js",
+    "instagram:sync": "node src/scripts/syncInstagramGallery.js",
+    "instagram:import": "node src/scripts/importInstagramToGallery.js",
+    "instagram:cron": "node src/scripts/instagramCron.js"
   },
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.2",
+    "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "groq-sdk": "^1.2.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.1.1",

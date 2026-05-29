@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs').promises;
 const { Gallery } = require('../models');
+const { syncInstagram, parseUsername } = require('../scripts/syncInstagramGallery');
 
 const PUBLIC_BASE =
   process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 5001}`;
@@ -129,4 +130,29 @@ async function remove(req, res, next) {
   }
 }
 
-module.exports = { list, listAdmin, create, update, remove };
+async function syncFromInstagram(req, res, next) {
+  try {
+    const { instagramUrl, category, limit } = req.body;
+    if (!instagramUrl) {
+      const e = new Error('instagramUrl is required');
+      e.status = 400;
+      throw e;
+    }
+    const username = parseUsername(instagramUrl);
+    if (!username) {
+      const e = new Error('Could not parse Instagram username from URL');
+      e.status = 400;
+      throw e;
+    }
+    const result = await syncInstagram(
+      username,
+      category || process.env.INSTAGRAM_CATEGORY || 'nails',
+      Math.min(parseInt(limit, 10) || 30, 50)
+    );
+    res.json({ username, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, listAdmin, create, update, remove, syncFromInstagram };
