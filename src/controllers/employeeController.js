@@ -106,6 +106,28 @@ async function getEmployeeStats(req, res, next) {
   }
 }
 
+async function uploadAvatar(req, res, next) {
+  try {
+    const row = await Employee.findByPk(req.params.id);
+    if (!row) {
+      const e = new Error('Employee not found');
+      e.status = 404;
+      throw e;
+    }
+    if (!req.file) {
+      const e = new Error('No file uploaded');
+      e.status = 400;
+      throw e;
+    }
+    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+    await row.update({ avatarUrl });
+    res.json({ avatarUrl });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   list,
   getById,
@@ -113,4 +135,5 @@ module.exports = {
   update,
   remove,
   getEmployeeStats,
+  uploadAvatar,
 };

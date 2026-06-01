@@ -60,6 +60,7 @@ module.exports = (sequelize) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
+      avatarUrl: { type: DataTypes.STRING(500), allowNull: true },
       hireDate: { type: DataTypes.DATEONLY, allowNull: true },
       isActive: {
         type: DataTypes.BOOLEAN,

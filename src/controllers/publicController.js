@@ -113,7 +113,7 @@ async function listEmployees(req, res, next) {
   try {
     const rows = await Employee.findAll({
       where: { isActive: true },
-      attributes: ['id', 'firstName', 'lastName', 'email', 'phone'],
+      attributes: ['id', 'firstName', 'lastName', 'email', 'phone', 'avatarUrl'],
       order: [['lastName', 'ASC']],
     });
     res.json(rows);
