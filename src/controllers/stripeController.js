@@ -63,6 +63,25 @@ exports.createConnectionToken = async (req, res) => {
   }
 };
 
+/** Update amount trên PI sau khi collect card (dùng để cộng tip) */
+exports.updateTerminalPaymentIntent = async (req, res) => {
+  try {
+    const stripe = getStripe();
+    const { id } = req.params;
+    const { amount_cents } = req.body;
+    if (!id) return res.status(400).json({ error: 'paymentIntentId required' });
+    if (!amount_cents || Number(amount_cents) <= 0)
+      return res.status(400).json({ error: 'amount_cents must be positive' });
+    const intent = await stripe.paymentIntents.update(id, {
+      amount: Math.round(Number(amount_cents)),
+    });
+    res.json({ paymentIntentId: intent.id, amount: intent.amount });
+  } catch (err) {
+    console.error('[stripe-terminal] updateTerminalPaymentIntent error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 /** Tạo PaymentIntent cho terminal (card_present) */
 exports.createTerminalPaymentIntent = async (req, res) => {
   try {
