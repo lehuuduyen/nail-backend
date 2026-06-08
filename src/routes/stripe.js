@@ -10,5 +10,6 @@ router.get('/payment/:paymentIntentId', stripeController.getPaymentDetails);
 router.post('/connection-token', stripeController.createConnectionToken);
 router.post('/terminal/payment-intent', stripeController.createTerminalPaymentIntent);
 router.patch('/terminal/payment-intent/:id', stripeController.updateTerminalPaymentIntent);
+router.post('/terminal/payment-intent/:id/capture', stripeController.captureTerminalPaymentIntent);
 
 module.exports = router;
