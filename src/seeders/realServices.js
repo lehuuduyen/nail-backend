@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const { sequelize, Service } = require('../models');
 
-const jsonPath = path.join(__dirname, '../../../shared/niceNailsServices.json');
+const jsonPath = path.join(__dirname, '../../data/niceNailsServices.json');
 const rawServices = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
 function buildRows() {
