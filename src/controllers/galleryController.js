@@ -153,6 +153,9 @@ async function syncFromInstagram(req, res, next) {
     );
     res.json({ username, ...result });
   } catch (err) {
+    next(err);
+  }
+}
 
 async function createFromUrl(req, res, next) {
   try {

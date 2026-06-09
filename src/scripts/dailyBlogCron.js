@@ -36,8 +36,8 @@ function runGenerator() {
   }
 }
 
-// 9:00 AM America/Phoenix (UTC-7, no DST) = 16:00 UTC
-cron.schedule('0 16 * * *', runGenerator, { timezone: 'UTC' });
+// 9:00 AM America/Phoenix (UTC-7, no DST) = 16:00 UTC, Thứ 3/5/7 (Tue/Thu/Sat)
+cron.schedule('0 16 * * 2,4,6', runGenerator, { timezone: 'UTC' });
 
 // Keep process alive
 const keepAlive = setInterval(() => {}, 1000 * 60 * 60);
@@ -54,7 +54,7 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-console.log(`[${new Date().toISOString()}] Daily blog cron started. Scheduled for 9:00 AM Phoenix time (16:00 UTC) every day.`);
+console.log(`[${new Date().toISOString()}] Daily blog cron started. Scheduled for 9:00 AM Phoenix time (16:00 UTC) on Tue/Thu/Sat (Thứ 3/5/7).`);
 console.log('Running initial generation now...');
 
 // Chạy ngay khi start
