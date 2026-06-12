@@ -13,5 +13,6 @@ router.get('/store-income/by-range', authMiddleware, ctrl.storeIncomeByRange);
 
 router.get('/owner-advanced', authMiddleware, ctrl.ownerAdvanced);
 router.get('/pedicure-log', authMiddleware, ctrl.pedicureLog);
+router.get('/services/by-range', authMiddleware, ctrl.serviceByRange);
 
 module.exports = router;

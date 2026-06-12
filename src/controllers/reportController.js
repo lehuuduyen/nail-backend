@@ -493,3 +493,105 @@ exports.pedicureLog = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ─── Service Statistics ───────────────────────────────────────────────────────
+
+const CATEGORY_LABELS = {
+  manicure: 'Manicure',
+  pedicure: 'Pedicure',
+  nails: 'Nails',
+  addon: 'Add-on',
+  kids: 'Kids',
+  lash: 'Lash',
+  waxing: 'Waxing',
+  head_spa: 'Head Spa',
+  facial: 'Facial',
+  gel: 'Gel',
+  dip: 'Dip',
+  acrylic: 'Acrylic',
+  other: 'Other',
+};
+
+exports.serviceByRange = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const { startStr, endStr } = getDateRange('range', { startDate, endDate });
+
+    const transactions = await Transaction.findAll({
+      where: {
+        date: { [Op.between]: [startStr, endStr] },
+        ...notRefundedWhere,
+      },
+      include: [
+        {
+          model: Service,
+          attributes: ['id', 'name', 'category', 'price'],
+          required: true,
+        },
+      ],
+      order: [['date', 'ASC'], ['id', 'ASC']],
+    });
+
+    // Aggregate per service
+    const byService = {};
+    transactions.forEach((t) => {
+      const svc = t.Service;
+      if (!svc) return;
+      const key = svc.id;
+      if (!byService[key]) {
+        byService[key] = {
+          serviceId: svc.id,
+          name: svc.name,
+          category: svc.category,
+          count: 0,
+          revenue: 0,
+        };
+      }
+      byService[key].count += 1;
+      byService[key].revenue += parseFloat(t.amount || 0);
+    });
+
+    // Sort by count desc, assign rank
+    const allServices = Object.values(byService)
+      .sort((a, b) => b.count - a.count || b.revenue - a.revenue)
+      .map((s, i) => ({ ...s, rank: i + 1, revenue: Math.round(s.revenue * 100) / 100 }));
+
+    // Totals
+    const totals = allServices.reduce(
+      (acc, s) => ({ count: acc.count + s.count, revenue: acc.revenue + s.revenue }),
+      { count: 0, revenue: 0 }
+    );
+    totals.revenue = Math.round(totals.revenue * 100) / 100;
+    totals.avgPerTicket = totals.count > 0 ? Math.round((totals.revenue / totals.count) * 100) / 100 : 0;
+
+    // Group by category, sorted by category total count desc
+    const categoryMap = {};
+    allServices.forEach((s) => {
+      const cat = s.category || 'other';
+      if (!categoryMap[cat]) categoryMap[cat] = { name: cat, label: CATEGORY_LABELS[cat] || cat, count: 0, revenue: 0, services: [] };
+      categoryMap[cat].count += s.count;
+      categoryMap[cat].revenue = Math.round((categoryMap[cat].revenue + s.revenue) * 100) / 100;
+      categoryMap[cat].services.push(s);
+    });
+
+    const categories = Object.values(categoryMap)
+      .sort((a, b) => b.count - a.count)
+      .map((cat) => ({
+        ...cat,
+        revenue: Math.round(cat.revenue * 100) / 100,
+        // re-rank within category
+        services: cat.services.map((s, i) => ({ ...s, categoryRank: i + 1 })),
+      }));
+
+    res.json({
+      success: true,
+      startDate: startStr,
+      endDate: endStr,
+      totals,
+      categories,
+      services: allServices,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

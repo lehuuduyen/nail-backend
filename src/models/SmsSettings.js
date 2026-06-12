@@ -10,7 +10,7 @@ module.exports = (sequelize) => {
       birthdayTime: { type: DataTypes.STRING(5), defaultValue: '09:00' },
       eodEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
       birthdayEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
-      managerPhone: { type: DataTypes.STRING(30), allowNull: true },
+      managerPhone: { type: DataTypes.TEXT, allowNull: true },
     },
     { tableName: 'sms_settings', timestamps: true }
   );

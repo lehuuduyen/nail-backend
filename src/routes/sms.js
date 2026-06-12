@@ -3,10 +3,16 @@ const router = express.Router();
 const { SmsTemplate, SmsSettings } = require('../models');
 const { sendSms, normalizeE164 } = require('../services/smsService');
 
+const parsePhones = (raw) =>
+  (raw || '').split(',').map((s) => s.trim()).filter(Boolean);
+
+const joinPhones = (arr) =>
+  (Array.isArray(arr) ? arr : []).map((s) => s.trim()).filter(Boolean).join(',');
+
 // GET /api/sms/templates
 router.get('/templates', async (req, res, next) => {
   try {
-    const types = ['booking_confirm', 'eod_thankyou', 'birthday'];
+    const types = ['booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday'];
     const rows = await SmsTemplate.findAll();
     const map = {};
     rows.forEach((r) => { map[r.type] = r; });
@@ -24,7 +30,7 @@ router.get('/templates', async (req, res, next) => {
 router.put('/templates/:type', async (req, res, next) => {
   try {
     const { type } = req.params;
-    const validTypes = ['booking_confirm', 'eod_thankyou', 'birthday'];
+    const validTypes = ['booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday'];
     if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid type' });
 
     const { body, enabled } = req.body;
@@ -53,7 +59,7 @@ router.get('/settings', async (req, res, next) => {
       birthdayTime: settings.birthdayTime,
       eodEnabled: settings.eodEnabled,
       birthdayEnabled: settings.birthdayEnabled,
-      managerPhone: settings.managerPhone || null,
+      managerPhones: parsePhones(settings.managerPhone),
     });
   } catch (err) { next(err); }
 });
@@ -61,7 +67,7 @@ router.get('/settings', async (req, res, next) => {
 // PUT /api/sms/settings
 router.put('/settings', async (req, res, next) => {
   try {
-    const { eodTime, birthdayTime, eodEnabled, birthdayEnabled, managerPhone } = req.body;
+    const { eodTime, birthdayTime, eodEnabled, birthdayEnabled, managerPhones } = req.body;
     let settings = await SmsSettings.findOne({ where: { id: 1 } });
     if (!settings) settings = await SmsSettings.create({ id: 1 });
     const updates = {};
@@ -69,7 +75,7 @@ router.put('/settings', async (req, res, next) => {
     if (birthdayTime !== undefined) updates.birthdayTime = birthdayTime;
     if (eodEnabled !== undefined) updates.eodEnabled = eodEnabled;
     if (birthdayEnabled !== undefined) updates.birthdayEnabled = birthdayEnabled;
-    if (managerPhone !== undefined) updates.managerPhone = managerPhone;
+    if (managerPhones !== undefined) updates.managerPhone = joinPhones(managerPhones);
     await settings.update(updates);
     await settings.reload();
     res.json({
@@ -77,7 +83,7 @@ router.put('/settings', async (req, res, next) => {
       birthdayTime: settings.birthdayTime,
       eodEnabled: settings.eodEnabled,
       birthdayEnabled: settings.birthdayEnabled,
-      managerPhone: settings.managerPhone || null,
+      managerPhones: parsePhones(settings.managerPhone),
     });
   } catch (err) { next(err); }
 });

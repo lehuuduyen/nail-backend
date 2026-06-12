@@ -72,11 +72,13 @@ async function sendCheckinConfirm({ name, phone }) {
 async function sendManagerBookingAlert({ customerName, customerPhone, serviceName, time, confirmation }) {
   const settings = await SmsSettings.findOne({ where: { id: 1 } });
   if (!settings?.managerPhone) return;
+  const phones = settings.managerPhone.split(',').map((s) => s.trim()).filter(Boolean);
+  if (!phones.length) return;
   const when = new Date(time).toLocaleString('en-US', {
     dateStyle: 'medium', timeStyle: 'short', timeZone: process.env.SALON_TIMEZONE || 'America/Phoenix',
   });
   const body = `New booking: ${customerName} (${customerPhone}) — ${serviceName} at ${when}. Ref: ${confirmation}`;
-  await sendSms(settings.managerPhone, body);
+  await Promise.all(phones.map((p) => sendSms(p, body)));
 }
 
 module.exports = { sendSms, sendBookingConfirm, sendCheckinConfirm, sendEodThankYou, sendBirthdaySms, sendManagerBookingAlert, normalizeE164 };
