@@ -20,5 +20,6 @@ router.use('/stripe', authMiddleware, require('./stripe'));
 router.use('/receipt', authMiddleware, require('./receipt'));
 router.use('/reports', require('./reports'));
 router.use('/salary', require('./salary'));
+router.use('/sms', authMiddleware, require('./sms'));
 
 module.exports = router;

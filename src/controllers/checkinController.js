@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Customer, Appointment, Service, Employee, Transaction } = require('../models');
+const { sendCheckinConfirm } = require('../services/smsService');
 
 // In-memory waiting list — khách vừa check-in, chờ được phục vụ
 // Tối đa 30 entries, tự hết hạn sau 3 giờ
@@ -120,20 +121,35 @@ async function lookup(req, res) {
 
 async function register(req, res) {
   try {
-    const { phone, name } = req.body;
+    const { phone, name, birthday } = req.body;
     if (!phone || !name) return res.status(400).json({ error: 'phone and name required' });
+
+    // Parse MM/DD/YYYY → YYYY-MM-DD for DATEONLY column
+    let birthdayVal = null;
+    if (birthday) {
+      const m = String(birthday).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) birthdayVal = `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+    }
 
     const [customer, created] = await Customer.findOrCreate({
       where: { phone },
-      defaults: { name },
+      defaults: { name, birthday: birthdayVal },
     });
 
-    if (!created && customer.name !== name) {
-      await customer.update({ name });
+    if (!created) {
+      const updates = {};
+      if (customer.name !== name) updates.name = name;
+      if (birthdayVal && !customer.birthday) updates.birthday = birthdayVal;
+      if (Object.keys(updates).length) await customer.update(updates);
     }
 
     return res.status(created ? 201 : 200).json({
-      customer: { name: customer.name, phone: customer.phone, faceEnrolled: customer.faceEnrolled },
+      customer: {
+        name: customer.name,
+        phone: customer.phone,
+        birthday: customer.birthday,
+        faceEnrolled: customer.faceEnrolled,
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -178,6 +194,11 @@ async function arrive(req, res) {
 
     _waitingList.push(entry);
     if (_waitingList.length > MAX_WAITING) _waitingList.shift();
+
+    if (customer?.smsOptIn && phone) {
+      sendCheckinConfirm({ name: entry.name, phone })
+        .catch((e) => console.warn('[Checkin SMS]', e.message));
+    }
 
     return res.json({ success: true });
   } catch (err) {

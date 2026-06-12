@@ -1,7 +1,8 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { Appointment, Employee, Service, User } = require('../models');
+const { Appointment, Employee, Service, User, Customer } = require('../models');
 const { sendExpoPush } = require('../services/expoPush');
+const { sendBookingConfirm, sendManagerBookingAlert } = require('../services/smsService');
 
 const SLOT_MINUTES = 30;
 
@@ -250,6 +251,7 @@ async function bookPublic(req, res, next) {
       serviceId,
       scheduledAt,
       notes,
+      smsOptIn,
     } = req.body;
 
     if (!customerName || !customerPhone || !serviceId || !scheduledAt) {
@@ -378,16 +380,46 @@ async function bookPublic(req, res, next) {
       confirmationNumber,
     });
 
-    try {
-      await sendBookingSms({
-        customerName: row.customerName,
-        customerPhone: row.customerPhone,
-        scheduledAt: row.scheduledAt,
-        confirmationNumber,
-      });
-    } catch (smsErr) {
-      console.warn('SMS skipped:', smsErr.message);
+    // Upsert customer record with smsOptIn preference
+    if (customerPhone) {
+      try {
+        const [customer] = await Customer.findOrCreate({
+          where: { phone: String(customerPhone).trim() },
+          defaults: { name: String(customerName).trim(), smsOptIn: !!smsOptIn },
+        });
+        if (customer && smsOptIn !== undefined) {
+          await customer.update({ smsOptIn: !!smsOptIn });
+        }
+      } catch (custErr) {
+        console.warn('Customer upsert skipped:', custErr.message);
+      }
     }
+
+    console.log('[SMS debug] smsOptIn received:', smsOptIn, typeof smsOptIn);
+    if (smsOptIn) {
+      try {
+        await sendBookingConfirm({
+          name: row.customerName,
+          phone: row.customerPhone,
+          time: row.scheduledAt,
+          confirmation: confirmationNumber,
+        });
+        console.log('[SMS debug] booking confirm sent to', row.customerPhone);
+      } catch (smsErr) {
+        console.warn('[SMS debug] Booking SMS error:', smsErr.message);
+      }
+    } else {
+      console.log('[SMS debug] skipped — smsOptIn is falsy');
+    }
+
+    // Always notify manager regardless of customer opt-in
+    sendManagerBookingAlert({
+      customerName: row.customerName,
+      customerPhone: row.customerPhone,
+      serviceName: service.name,
+      time: row.scheduledAt,
+      confirmation: confirmationNumber,
+    }).catch((e) => console.warn('[Manager SMS]', e.message));
 
     // Send push notification to all staff devices
     try {
@@ -422,37 +454,6 @@ async function bookPublic(req, res, next) {
   }
 }
 
-async function sendBookingSms({
-  customerName,
-  customerPhone,
-  scheduledAt,
-  confirmationNumber,
-}) {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token || !from) return;
-
-  const salon = process.env.SALON_DISPLAY_NAME || 'Nice Nails & Spa';
-  const when = new Date(scheduledAt).toLocaleString('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-  const body = `Hi ${customerName}! Your appointment at ${salon} is confirmed for ${when}. Ref: ${confirmationNumber}. See you soon!`;
-
-  const twilio = require('twilio')(sid, token);
-  const to = normalizePhoneE164(customerPhone);
-  if (!to) return;
-  await twilio.messages.create({ from, to, body });
-}
-
-function normalizePhoneE164(raw) {
-  const d = String(raw).replace(/\D/g, '');
-  if (d.length === 10) return `+1${d}`;
-  if (d.length === 11 && d.startsWith('1')) return `+${d}`;
-  if (raw.startsWith('+')) return raw;
-  return null;
-}
 
 module.exports = {
   getSalonInfo,

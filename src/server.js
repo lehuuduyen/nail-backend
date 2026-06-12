@@ -77,10 +77,79 @@ function mountAppStack() {
   connectDatabase(sequelize);
 }
 
+function startSmsCronJobs() {
+  const cron = require('node-cron');
+  const { Op } = require('sequelize');
+  const tz = process.env.SALON_TIMEZONE || 'America/Phoenix';
+
+  // Runs every minute — checks if current HH:MM matches configured times
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { SmsSettings, Customer, Appointment } = require('./models');
+      const { sendEodThankYou, sendBirthdaySms } = require('./services/smsService');
+
+      const settings = await SmsSettings.findOne({ where: { id: 1 } });
+      if (!settings) return;
+
+      const now = new Date();
+      const currentHHMM = now.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).replace(/^24:/, '00:');
+
+      // End-of-day thank you
+      if (settings.eodEnabled && settings.eodTime === currentHHMM) {
+        const tz_offset = new Date().toLocaleString('en-US', { timeZone: tz });
+        const todayStr = new Date(tz_offset).toISOString().slice(0, 10);
+        const dayStart = new Date(`${todayStr}T00:00:00.000Z`);
+        const dayEnd = new Date(`${todayStr}T23:59:59.999Z`);
+
+        const completed = await Appointment.findAll({
+          where: {
+            completedAt: { [Op.between]: [dayStart, dayEnd] },
+            status: 'completed',
+            customerPhone: { [Op.ne]: null },
+          },
+        });
+
+        const sent = new Set();
+        for (const appt of completed) {
+          if (sent.has(appt.customerPhone)) continue;
+          const customer = await Customer.findOne({ where: { phone: appt.customerPhone } });
+          if (!customer?.smsOptIn) continue;
+          sent.add(appt.customerPhone);
+          sendEodThankYou({ name: appt.customerName, phone: appt.customerPhone })
+            .catch((e) => console.warn('[EOD SMS]', e.message));
+        }
+      }
+
+      // Birthday SMS
+      if (settings.birthdayEnabled && settings.birthdayTime === currentHHMM) {
+        const todayMMDD = now.toLocaleString('en-US', { month: '2-digit', day: '2-digit', timeZone: tz });
+        const [mm, dd] = todayMMDD.split('/');
+        const customers = await Customer.findAll({
+          where: {
+            smsOptIn: true,
+            birthday: { [Op.ne]: null },
+          },
+        });
+        for (const c of customers) {
+          if (!c.birthday) continue;
+          const [, bMM, bDD] = String(c.birthday).split('-');
+          if (bMM === mm && bDD === dd) {
+            sendBirthdaySms({ name: c.name, phone: c.phone })
+              .catch((e) => console.warn('[Birthday SMS]', e.message));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[SMS cron]', err.message);
+    }
+  }, { timezone: tz });
+}
+
 app.listen(PORT, () => {
   console.log(`nail-backend listening on port ${PORT}`);
   try {
     mountAppStack();
+    startSmsCronJobs();
   } catch (err) {
     console.error('Failed to mount API (fix errors and redeploy):', err);
   }

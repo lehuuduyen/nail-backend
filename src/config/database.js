@@ -7,7 +7,7 @@ if (!process.env.DATABASE_URL) {
 
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres',
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
+  logging: false,
   define: {
     underscored: false,
   },
