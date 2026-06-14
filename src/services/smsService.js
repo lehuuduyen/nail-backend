@@ -39,11 +39,13 @@ async function sendSms(to, body) {
   return client.messages.create({ from, to: normalized, body });
 }
 
-async function sendBookingConfirm({ name, phone, time, confirmation }) {
+async function sendBookingConfirm({ name, phone, time, confirmation, technicianName = '' }) {
   const tpl = await getTemplate('booking_confirm');
   if (!tpl.enabled) return;
   const when = formatNaiveUtcDisplay(time);
-  const body = renderBody(tpl.body, { name, time: when, salon: SALON, confirmation });
+  // {technician} = " with [Name]" when specific tech was chosen, "" when anyone
+  const technician = technicianName ? ` with ${technicianName}` : '';
+  const body = renderBody(tpl.body, { name, time: when, salon: SALON, confirmation, technician });
   await sendSms(phone, body);
 }
 

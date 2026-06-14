@@ -365,6 +365,10 @@ async function bookPublic(req, res, next) {
       throw e;
     }
 
+    // Only show technician name in SMS when customer explicitly requested someone
+    const chosenEmp = employees.find((e) => e.id === chosenEmployeeId);
+    const technicianName = !wantAny && chosenEmp ? (chosenEmp.firstName || '') : '';
+
     const confirmationNumber = `WEB-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     const row = await Appointment.create({
@@ -403,6 +407,7 @@ async function bookPublic(req, res, next) {
           phone: row.customerPhone,
           time: row.scheduledAt,
           confirmation: confirmationNumber,
+          technicianName,
         });
         console.log('[SMS debug] booking confirm sent to', row.customerPhone);
       } catch (smsErr) {
