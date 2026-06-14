@@ -60,6 +60,7 @@ router.get('/settings', async (req, res, next) => {
       eodEnabled: settings.eodEnabled,
       birthdayEnabled: settings.birthdayEnabled,
       managerPhones: parsePhones(settings.managerPhone),
+      timezone: settings.timezone || 'America/Phoenix',
     });
   } catch (err) { next(err); }
 });
@@ -67,7 +68,7 @@ router.get('/settings', async (req, res, next) => {
 // PUT /api/sms/settings
 router.put('/settings', async (req, res, next) => {
   try {
-    const { eodTime, birthdayTime, eodEnabled, birthdayEnabled, managerPhones } = req.body;
+    const { eodTime, birthdayTime, eodEnabled, birthdayEnabled, managerPhones, timezone } = req.body;
     let settings = await SmsSettings.findOne({ where: { id: 1 } });
     if (!settings) settings = await SmsSettings.create({ id: 1 });
     const updates = {};
@@ -76,6 +77,7 @@ router.put('/settings', async (req, res, next) => {
     if (eodEnabled !== undefined) updates.eodEnabled = eodEnabled;
     if (birthdayEnabled !== undefined) updates.birthdayEnabled = birthdayEnabled;
     if (managerPhones !== undefined) updates.managerPhone = joinPhones(managerPhones);
+    if (timezone !== undefined) updates.timezone = timezone;
     await settings.update(updates);
     await settings.reload();
     res.json({
@@ -84,6 +86,7 @@ router.put('/settings', async (req, res, next) => {
       eodEnabled: settings.eodEnabled,
       birthdayEnabled: settings.birthdayEnabled,
       managerPhones: parsePhones(settings.managerPhone),
+      timezone: settings.timezone || 'America/Phoenix',
     });
   } catch (err) { next(err); }
 });

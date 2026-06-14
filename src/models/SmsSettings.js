@@ -11,6 +11,7 @@ module.exports = (sequelize) => {
       eodEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
       birthdayEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
       managerPhone: { type: DataTypes.TEXT, allowNull: true },
+      timezone: { type: DataTypes.STRING(100), defaultValue: 'America/Phoenix' },
     },
     { tableName: 'sms_settings', timestamps: true }
   );

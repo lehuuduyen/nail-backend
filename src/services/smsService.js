@@ -1,4 +1,5 @@
 const { SmsTemplate, SmsSettings } = require('../models');
+const { formatNaiveUtcDisplay } = require('../utils/salonAppointmentDay');
 
 const SALON = process.env.SALON_DISPLAY_NAME || 'Nice Nails & Spa';
 
@@ -41,9 +42,7 @@ async function sendSms(to, body) {
 async function sendBookingConfirm({ name, phone, time, confirmation }) {
   const tpl = await getTemplate('booking_confirm');
   if (!tpl.enabled) return;
-  const when = new Date(time).toLocaleString('en-US', {
-    dateStyle: 'medium', timeStyle: 'short', timeZone: process.env.SALON_TIMEZONE || 'America/Phoenix',
-  });
+  const when = formatNaiveUtcDisplay(time);
   const body = renderBody(tpl.body, { name, time: when, salon: SALON, confirmation });
   await sendSms(phone, body);
 }
@@ -74,9 +73,7 @@ async function sendManagerBookingAlert({ customerName, customerPhone, serviceNam
   if (!settings?.managerPhone) return;
   const phones = settings.managerPhone.split(',').map((s) => s.trim()).filter(Boolean);
   if (!phones.length) return;
-  const when = new Date(time).toLocaleString('en-US', {
-    dateStyle: 'medium', timeStyle: 'short', timeZone: process.env.SALON_TIMEZONE || 'America/Phoenix',
-  });
+  const when = formatNaiveUtcDisplay(time);
   const body = `New booking: ${customerName} (${customerPhone}) — ${serviceName} at ${when}. Ref: ${confirmation}`;
   await Promise.all(phones.map((p) => sendSms(p, body)));
 }
