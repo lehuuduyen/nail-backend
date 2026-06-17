@@ -409,6 +409,7 @@ async function bookPublic(req, res, next) {
           time: row.scheduledAt,
           confirmation: confirmationNumber,
           technicianName,
+          notes: row.notes || '',
         });
         console.log('[SMS debug] booking confirm sent to', row.customerPhone);
       } catch (smsErr) {
