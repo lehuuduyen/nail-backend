@@ -382,6 +382,7 @@ async function bookPublic(req, res, next) {
       notes: notes ? String(notes).trim() : null,
       source: 'web',
       confirmationNumber,
+      wantAny,
     });
 
     // Upsert customer record with smsOptIn preference

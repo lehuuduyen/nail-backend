@@ -83,7 +83,7 @@ async function getByDay(req, res, next) {
         ],
       },
       include: [
-        { model: Employee, attributes: ['id', 'firstName', 'lastName'] },
+        { model: Employee, attributes: ['id', 'firstName', 'lastName', 'nickName'] },
         { model: Service, attributes: ['id', 'name', 'price', 'duration'] },
       ],
       order: [['scheduledAt', 'ASC']],

@@ -36,6 +36,7 @@ module.exports = (sequelize) => {
         defaultValue: 'scheduled',
       },
       notes: { type: DataTypes.TEXT, allowNull: true },
+      wantAny: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     },
     {
       tableName: 'appointments',
