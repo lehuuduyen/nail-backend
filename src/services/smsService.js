@@ -72,13 +72,27 @@ async function sendCheckinConfirm({ name, phone }) {
   await sendSms(phone, body);
 }
 
-async function sendManagerBookingAlert({ customerName, customerPhone, serviceName, time, confirmation }) {
+async function sendManagerBookingAlert({ customerName, customerPhone, serviceName, time, confirmation, technicianName = '', notes = '' }) {
+  const tpl = await getTemplate('manager_booking_alert');
+  if (!tpl.enabled) return;
   const settings = await SmsSettings.findOne({ where: { id: 1 } });
   if (!settings?.managerPhone) return;
   const phones = settings.managerPhone.split(',').map((s) => s.trim()).filter(Boolean);
   if (!phones.length) return;
   const when = formatNaiveUtcDisplay(time);
-  const body = `New booking: ${customerName} (${customerPhone}) — ${serviceName} at ${when}. Ref: ${confirmation}`;
+  // {technician} = " with [Name]" when specific tech was chosen, "" when anyone
+  const technician = technicianName ? ` with ${technicianName}` : '';
+  // {notes} = "\nSpecial requests: ..." when non-empty, "" otherwise
+  const notesVar = notes ? `\nSpecial requests: ${notes}` : '';
+  const body = renderBody(tpl.body, {
+    name: customerName,
+    phone: customerPhone,
+    service: serviceName,
+    time: when,
+    confirmation,
+    technician,
+    notes: notesVar,
+  });
   await Promise.all(phones.map((p) => sendSms(p, body)));
 }
 

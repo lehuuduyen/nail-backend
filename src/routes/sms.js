@@ -12,7 +12,7 @@ const joinPhones = (arr) =>
 // GET /api/sms/templates
 router.get('/templates', async (req, res, next) => {
   try {
-    const types = ['booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday'];
+    const types = ['booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday', 'manager_booking_alert'];
     const rows = await SmsTemplate.findAll();
     const map = {};
     rows.forEach((r) => { map[r.type] = r; });
@@ -30,7 +30,7 @@ router.get('/templates', async (req, res, next) => {
 router.put('/templates/:type', async (req, res, next) => {
   try {
     const { type } = req.params;
-    const validTypes = ['booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday'];
+    const validTypes = ['booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday', 'manager_booking_alert'];
     if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid type' });
 
     const { body, enabled } = req.body;

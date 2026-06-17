@@ -6,6 +6,7 @@ const DEFAULTS = {
   checkin_confirm: 'Hi {name}! You\'ve checked in at {salon}. We\'ll be with you shortly! Reply STOP to unsubscribe.',
   eod_thankyou: 'Hi {name}! Thank you for visiting {salon} today. We hope to see you again soon! Reply STOP to unsubscribe.',
   birthday: 'Happy Birthday {name}! 🎂 {salon} wishes you a wonderful day. Come celebrate with us — enjoy a special treat on your next visit! Reply STOP to unsubscribe.',
+  manager_booking_alert: 'New booking: {name} ({phone}) — {service}{technician} at {time}. Ref: {confirmation}.{notes}',
 };
 
 module.exports = (sequelize) => {
@@ -14,7 +15,7 @@ module.exports = (sequelize) => {
     {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
       type: {
-        type: DataTypes.ENUM('booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday'),
+        type: DataTypes.ENUM('booking_confirm', 'checkin_confirm', 'eod_thankyou', 'birthday', 'manager_booking_alert'),
         allowNull: false,
       },
       body: { type: DataTypes.TEXT, allowNull: false },
