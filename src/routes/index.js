@@ -8,6 +8,7 @@ router.use('/voice', require('./voice'));
 router.use('/public', require('./public'));
 router.use('/gallery', require('./gallery'));
 router.use('/videos', require('./videos'));
+router.use('/promos', require('./promos'));
 router.use('/blog', authMiddleware, require('./blog'));
 router.use('/employees', authMiddleware, require('./employees'));
 router.use('/services', authMiddleware, require('./services'));

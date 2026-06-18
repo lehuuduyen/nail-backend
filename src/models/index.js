@@ -12,6 +12,7 @@ const Customer = require('./Customer')(sequelize);
 const SmsTemplate = require('./SmsTemplate')(sequelize);
 const SmsSettings = require('./SmsSettings')(sequelize);
 const Video = require('./Video')(sequelize);
+const Promo = require('./Promo')(sequelize);
 
 Employee.hasMany(Appointment, { foreignKey: 'employeeId' });
 Appointment.belongsTo(Employee, { foreignKey: 'employeeId' });
@@ -45,4 +46,5 @@ module.exports = {
   SmsTemplate,
   SmsSettings,
   Video,
+  Promo,
 };
