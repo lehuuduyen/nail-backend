@@ -25,8 +25,22 @@ async function listAdmin(req, res, next) {
   }
 }
 
+function normalizeTiers(raw) {
+  if (raw === undefined) return undefined; // not provided → leave unchanged
+  if (!Array.isArray(raw)) return null; // explicit clear
+  const tiers = raw
+    .map((t) => ({
+      worth: Number(t.worth) || 0,
+      pay: Number(t.pay) || 0,
+      bestValue: !!t.bestValue,
+    }))
+    .filter((t) => t.worth > 0 && t.pay > 0);
+  return tiers.length ? tiers : null;
+}
+
 function buildPayload(body) {
   return {
+    tiers: normalizeTiers(body.tiers),
     title: body.title != null ? String(body.title).trim() : undefined,
     description: body.description != null ? String(body.description).trim() : undefined,
     details: body.details ? String(body.details).trim() : null,
@@ -36,6 +50,7 @@ function buildPayload(body) {
     ctaLabel: body.ctaLabel ? String(body.ctaLabel).trim() : undefined,
     ctaHref: body.ctaHref ? String(body.ctaHref).trim() : undefined,
     active: body.active !== undefined ? Boolean(body.active) : undefined,
+    showCountdown: body.showCountdown !== undefined ? Boolean(body.showCountdown) : undefined,
     displayOrder:
       body.displayOrder !== undefined ? parseInt(body.displayOrder, 10) || 0 : undefined,
   };
@@ -60,6 +75,8 @@ async function create(req, res, next) {
       ctaLabel: p.ctaLabel || 'Book Now',
       ctaHref: p.ctaHref || '/booking',
       active: p.active !== undefined ? p.active : true,
+      showCountdown: p.showCountdown !== undefined ? p.showCountdown : false,
+      tiers: p.tiers !== undefined ? p.tiers : null,
       displayOrder: p.displayOrder || 0,
     });
     res.status(201).json(row);

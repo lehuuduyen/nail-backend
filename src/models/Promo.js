@@ -25,7 +25,18 @@ module.exports = (sequelize) => {
       },
       ctaLabel: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'Book Now' },
       ctaHref: { type: DataTypes.STRING(300), allowNull: false, defaultValue: '/booking' },
+      tiers: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        comment: 'optional pricing tiers, e.g. gift cards: [{worth, pay, bestValue}]',
+      },
       active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+      showCountdown: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        comment: 'show live countdown to endDate on the /specials event hero',
+      },
       displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     },
     {
