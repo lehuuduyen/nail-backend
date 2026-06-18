@@ -9,6 +9,7 @@
     "seed": "node src/seeders/seed.js",
     "seed:transactions": "node src/seeders/seedTransactions.js",
     "seed:services": "node src/seeders/realServices.js",
+    "seed:giftcard": "node src/scripts/seedGiftCardPromo.js",
     "seed:blog-seo": "node src/scripts/upsertSeoBlogPosts.js",
     "seed:blog-services": "node src/scripts/upsertNailServiceBlogPosts.js",
     "reset-admin": "node src/scripts/resetAdminPassword.js",
