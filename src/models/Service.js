@@ -12,6 +12,11 @@ module.exports = (sequelize) => {
       name: { type: DataTypes.STRING(150), allowNull: false },
       nameVi: { type: DataTypes.STRING(150), allowNull: true },
       description: { type: DataTypes.TEXT, allowNull: true },
+      imageUrl: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+        comment: 'Service photo shown on the website (uploaded file URL or external image URL)',
+      },
       price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
       priceCard: {
         type: DataTypes.DECIMAL(10, 2),

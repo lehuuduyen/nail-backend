@@ -72,6 +72,30 @@ async function remove(req, res, next) {
   }
 }
 
+async function uploadImage(req, res, next) {
+  try {
+    const row = await Service.findByPk(req.params.id);
+    if (!row) {
+      const e = new Error('Service not found');
+      e.status = 404;
+      throw e;
+    }
+    if (!req.file) {
+      const e = new Error('No image file uploaded');
+      e.status = 400;
+      throw e;
+    }
+    const publicBase =
+      process.env.PUBLIC_BASE_URL ||
+      `http://localhost:${process.env.PORT || 5001}`;
+    const imageUrl = `${publicBase.replace(/\/$/, '')}/uploads/services/${req.file.filename}`;
+    await row.update({ imageUrl });
+    res.json(row);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getPopularServices(req, res, next) {
   try {
     const { start, end } = req.query;
@@ -112,5 +136,6 @@ module.exports = {
   create,
   update,
   remove,
+  uploadImage,
   getPopularServices,
 };
