@@ -406,6 +406,18 @@ async function bookPublic(req, res, next) {
       isNewCustomer = priorCount === 0;
     }
 
+    // QA helper: phones listed in SMS_FORCE_NEW_CUSTOMER_PHONES are always treated
+    // as new so a real (already-used) number can test the $5 offer + receive the SMS.
+    // Non-destructive — remove the env var to turn off. Don't leave it on in prod.
+    const forceNew = (process.env.SMS_FORCE_NEW_CUSTOMER_PHONES || '')
+      .split(',')
+      .map((s) => s.replace(/\D/g, '').slice(-10))
+      .filter(Boolean);
+    if (forceNew.includes(phoneDigits)) {
+      isNewCustomer = true;
+      console.log('[SMS debug] forcing new-customer for', phoneDigits, '(SMS_FORCE_NEW_CUSTOMER_PHONES)');
+    }
+
     const row = await Appointment.create({
       customerName: String(customerName).trim(),
       customerPhone: String(customerPhone).trim(),
