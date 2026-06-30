@@ -17,8 +17,16 @@ const NEW_CUSTOMER_OFFER = {
   vi: 'La khach moi, ban duoc giam $5 cho lan dau. Vui long dua tin nhan nay cho nhan vien khi thanh toan.',
 };
 
-function newCustomerOfferLine(locale) {
-  return NEW_CUSTOMER_OFFER[locale] || NEW_CUSTOMER_OFFER.en;
+/**
+ * Effective offer line for a locale, honoring the admin override stored in
+ * SmsSettings (newCustomerOfferEn/Es/Vi). Empty/whitespace override → built-in
+ * default. `settings` may be null (table not seeded) → always defaults.
+ */
+function newCustomerOfferLine(locale, settings = null) {
+  const lang = NEW_CUSTOMER_OFFER[locale] ? locale : 'en';
+  const overrideKey = `newCustomerOffer${lang.charAt(0).toUpperCase()}${lang.slice(1)}`;
+  const override = settings?.[overrideKey];
+  return (override && override.trim()) || NEW_CUSTOMER_OFFER[lang];
 }
 
 function getTwilioClient() {
@@ -66,9 +74,13 @@ async function sendBookingConfirm({ name, phone, time, confirmation, technicianN
   // {notes} = "\nSpecial requests: ..." when non-empty, "" otherwise
   const notesVar = notes ? `\nSpecial requests: ${notes}` : '';
   let body = renderBody(tpl.body, { name, time: when, salon: SALON, confirmation, technician, notes: notesVar });
-  // First-time customer → append the $5-off offer line (their "proof" at checkout).
+  // First-time customer → append the $5-off offer line (their "proof" at checkout),
+  // unless an admin turned the offer off in SMS Settings.
   if (isNewCustomer) {
-    body += `\n${newCustomerOfferLine(locale)}`;
+    const settings = await SmsSettings.findOne({ where: { id: 1 } });
+    if (settings?.newCustomerOfferEnabled !== false) {
+      body += `\n${newCustomerOfferLine(locale, settings)}`;
+    }
   }
   await sendSms(phone, body);
 }
@@ -118,4 +130,4 @@ async function sendManagerBookingAlert({ customerName, customerPhone, serviceNam
   await Promise.all(phones.map((p) => sendSms(p, body)));
 }
 
-module.exports = { sendSms, sendBookingConfirm, sendCheckinConfirm, sendEodThankYou, sendBirthdaySms, sendManagerBookingAlert, normalizeE164 };
+module.exports = { sendSms, sendBookingConfirm, sendCheckinConfirm, sendEodThankYou, sendBirthdaySms, sendManagerBookingAlert, normalizeE164, NEW_CUSTOMER_OFFER };

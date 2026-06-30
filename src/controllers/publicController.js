@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { sequelize, Appointment, Employee, Service, User, Customer } = require('../models');
+const { sequelize, Appointment, Employee, Service, User, Customer, SmsSettings } = require('../models');
 const { sendExpoPush } = require('../services/expoPush');
 const { sendBookingConfirm, sendManagerBookingAlert } = require('../services/smsService');
 
@@ -47,6 +47,20 @@ const PUBLIC_SERVICE_CATEGORY_ORDER = [
 function getSalonInfo(req, res) {
   const name = process.env.SALON_DISPLAY_NAME || 'Nice Nails & Spa';
   res.json({ name });
+}
+
+/**
+ * Public: whether the new-customer $5-off offer is currently on. The website uses
+ * this to show/hide the /specials promo + booking callout. Defaults to enabled when
+ * the settings row is missing so a fresh install still advertises the offer.
+ */
+async function getNewCustomerOffer(req, res, next) {
+  try {
+    const settings = await SmsSettings.findOne({ where: { id: 1 } });
+    res.json({ enabled: settings?.newCustomerOfferEnabled !== false });
+  } catch (err) {
+    next(err);
+  }
 }
 
 async function listServices(req, res, next) {
@@ -489,6 +503,7 @@ async function bookPublic(req, res, next) {
 
 module.exports = {
   getSalonInfo,
+  getNewCustomerOffer,
   listServices,
   listServicesMenu,
   listEmployees,

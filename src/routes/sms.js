@@ -1,7 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { SmsTemplate, SmsSettings } = require('../models');
-const { sendSms, normalizeE164 } = require('../services/smsService');
+const { sendSms, normalizeE164, NEW_CUSTOMER_OFFER } = require('../services/smsService');
+
+// Shape the new-customer offer fields for the API (fills blanks with code defaults
+// so the admin textareas always show the line that will actually be sent).
+const newCustomerOfferPayload = (s) => ({
+  newCustomerOfferEnabled: s.newCustomerOfferEnabled !== false,
+  newCustomerOfferEn: s.newCustomerOfferEn || NEW_CUSTOMER_OFFER.en,
+  newCustomerOfferEs: s.newCustomerOfferEs || NEW_CUSTOMER_OFFER.es,
+  newCustomerOfferVi: s.newCustomerOfferVi || NEW_CUSTOMER_OFFER.vi,
+});
 
 const parsePhones = (raw) =>
   (raw || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -61,6 +70,7 @@ router.get('/settings', async (req, res, next) => {
       birthdayEnabled: settings.birthdayEnabled,
       managerPhones: parsePhones(settings.managerPhone),
       timezone: settings.timezone || 'America/Phoenix',
+      ...newCustomerOfferPayload(settings),
     });
   } catch (err) { next(err); }
 });
@@ -68,7 +78,10 @@ router.get('/settings', async (req, res, next) => {
 // PUT /api/sms/settings
 router.put('/settings', async (req, res, next) => {
   try {
-    const { eodTime, birthdayTime, eodEnabled, birthdayEnabled, managerPhones, timezone } = req.body;
+    const {
+      eodTime, birthdayTime, eodEnabled, birthdayEnabled, managerPhones, timezone,
+      newCustomerOfferEnabled, newCustomerOfferEn, newCustomerOfferEs, newCustomerOfferVi,
+    } = req.body;
     let settings = await SmsSettings.findOne({ where: { id: 1 } });
     if (!settings) settings = await SmsSettings.create({ id: 1 });
     const updates = {};
@@ -78,6 +91,11 @@ router.put('/settings', async (req, res, next) => {
     if (birthdayEnabled !== undefined) updates.birthdayEnabled = birthdayEnabled;
     if (managerPhones !== undefined) updates.managerPhone = joinPhones(managerPhones);
     if (timezone !== undefined) updates.timezone = timezone;
+    if (newCustomerOfferEnabled !== undefined) updates.newCustomerOfferEnabled = !!newCustomerOfferEnabled;
+    // Store overrides as-is; blank → null so it falls back to the code default.
+    if (newCustomerOfferEn !== undefined) updates.newCustomerOfferEn = newCustomerOfferEn?.trim() || null;
+    if (newCustomerOfferEs !== undefined) updates.newCustomerOfferEs = newCustomerOfferEs?.trim() || null;
+    if (newCustomerOfferVi !== undefined) updates.newCustomerOfferVi = newCustomerOfferVi?.trim() || null;
     await settings.update(updates);
     await settings.reload();
     res.json({
@@ -87,6 +105,7 @@ router.put('/settings', async (req, res, next) => {
       birthdayEnabled: settings.birthdayEnabled,
       managerPhones: parsePhones(settings.managerPhone),
       timezone: settings.timezone || 'America/Phoenix',
+      ...newCustomerOfferPayload(settings),
     });
   } catch (err) { next(err); }
 });

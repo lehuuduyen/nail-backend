@@ -12,6 +12,13 @@ module.exports = (sequelize) => {
       birthdayEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
       managerPhone: { type: DataTypes.TEXT, allowNull: true },
       timezone: { type: DataTypes.STRING(100), defaultValue: 'America/Phoenix' },
+      // New-customer $5-off offer: master toggle (gates both the SMS line and the
+      // website promo display) + optional per-locale text overrides (null = use the
+      // built-in default line in smsService).
+      newCustomerOfferEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
+      newCustomerOfferEn: { type: DataTypes.TEXT, allowNull: true },
+      newCustomerOfferEs: { type: DataTypes.TEXT, allowNull: true },
+      newCustomerOfferVi: { type: DataTypes.TEXT, allowNull: true },
     },
     { tableName: 'sms_settings', timestamps: true }
   );

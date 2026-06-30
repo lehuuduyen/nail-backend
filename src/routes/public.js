@@ -5,6 +5,7 @@ const blogController = require('../controllers/blogController');
 const checkinController = require('../controllers/checkinController');
 
 router.get('/salon', publicController.getSalonInfo);
+router.get('/new-customer-offer', publicController.getNewCustomerOffer);
 router.get('/services/menu', publicController.listServicesMenu);
 router.get('/services', publicController.listServices);
 router.get('/blog', blogController.listPublished);
