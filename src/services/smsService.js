@@ -106,7 +106,7 @@ async function sendCheckinConfirm({ name, phone }) {
   await sendSms(phone, body);
 }
 
-async function sendManagerBookingAlert({ customerName, customerPhone, serviceName, time, confirmation, technicianName = '', notes = '' }) {
+async function sendManagerBookingAlert({ customerName, customerPhone, serviceName, time, confirmation, technicianName = '', notes = '', isNewCustomer = false }) {
   const tpl = await getTemplate('manager_booking_alert');
   if (!tpl.enabled) return;
   const settings = await SmsSettings.findOne({ where: { id: 1 } });
@@ -118,7 +118,7 @@ async function sendManagerBookingAlert({ customerName, customerPhone, serviceNam
   const technician = technicianName ? ` with ${technicianName}` : '';
   // {notes} = "\nSpecial requests: ..." when non-empty, "" otherwise
   const notesVar = notes ? `\nSpecial requests: ${notes}` : '';
-  const body = renderBody(tpl.body, {
+  let body = renderBody(tpl.body, {
     name: customerName,
     phone: customerPhone,
     service: serviceName,
@@ -127,6 +127,10 @@ async function sendManagerBookingAlert({ customerName, customerPhone, serviceNam
     technician,
     notes: notesVar,
   });
+  // Flag first-time customers so staff know to apply the $5 first-visit discount.
+  if (isNewCustomer) {
+    body += '\n** NEW CUSTOMER ** (first visit - apply $5 off)';
+  }
   await Promise.all(phones.map((p) => sendSms(p, body)));
 }
 

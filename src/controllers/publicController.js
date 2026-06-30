@@ -477,6 +477,7 @@ async function bookPublic(req, res, next) {
       confirmation: confirmationNumber,
       technicianName,
       notes: row.notes || '',
+      isNewCustomer,
     }).catch((e) => console.warn('[Manager SMS]', e.message));
 
     // Send push notification to all staff devices
