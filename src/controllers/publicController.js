@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { Appointment, Employee, Service, User, Customer } = require('../models');
+const { sequelize, Appointment, Employee, Service, User, Customer } = require('../models');
 const { sendExpoPush } = require('../services/expoPush');
 const { sendBookingConfirm, sendManagerBookingAlert } = require('../services/smsService');
 
@@ -252,6 +252,7 @@ async function bookPublic(req, res, next) {
       scheduledAt,
       notes,
       smsOptIn,
+      locale,
     } = req.body;
 
     if (!customerName || !customerPhone || !serviceId || !scheduledAt) {
@@ -371,6 +372,26 @@ async function bookPublic(req, res, next) {
 
     const confirmationNumber = `WEB-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
+    // New customer = this phone has NEVER appeared in the Appointment table.
+    // MUST be checked BEFORE inserting the new row, or it would always see itself.
+    // Compare on the last 10 digits so all stored formats — "(602) 759-9184",
+    // "6027599184", "+16027599184" — match the same person.
+    const phoneDigits = String(customerPhone).replace(/\D/g, '').slice(-10);
+    let isNewCustomer = false;
+    if (phoneDigits.length === 10) {
+      const priorCount = await Appointment.count({
+        where: sequelize.where(
+          sequelize.fn(
+            'right',
+            sequelize.fn('regexp_replace', sequelize.col('customerPhone'), '[^0-9]', '', 'g'),
+            10
+          ),
+          phoneDigits
+        ),
+      });
+      isNewCustomer = priorCount === 0;
+    }
+
     const row = await Appointment.create({
       customerName: String(customerName).trim(),
       customerPhone: String(customerPhone).trim(),
@@ -410,6 +431,8 @@ async function bookPublic(req, res, next) {
           confirmation: confirmationNumber,
           technicianName,
           notes: row.notes || '',
+          isNewCustomer,
+          locale: ['en', 'es', 'vi'].includes(locale) ? locale : 'en',
         });
         console.log('[SMS debug] booking confirm sent to', row.customerPhone);
       } catch (smsErr) {

@@ -3,6 +3,24 @@ const { formatNaiveUtcDisplay } = require('../utils/salonAppointmentDay');
 
 const SALON = process.env.SALON_DISPLAY_NAME || 'Nice Nails & Spa';
 
+/**
+ * Extra line appended to the booking confirmation when the customer is booking
+ * for the first time (phone never seen in the Appointment table). The SMS is the
+ * "proof" the customer shows staff at checkout — staff apply the $5 off by hand.
+ * Kept accent-free so each locale stays within a single GSM-7 SMS segment (A2P).
+ * Selected by booking locale; falls back to English. To make this editable from
+ * the admin later, swap this map for an SmsSettings/SmsTemplate lookup.
+ */
+const NEW_CUSTOMER_OFFER = {
+  en: 'As a new customer you get $5 OFF your first visit. Show this text to our staff at checkout.',
+  es: 'Como cliente nuevo obtienes $5 de descuento en tu primera visita. Muestra este mensaje a nuestro personal al pagar.',
+  vi: 'La khach moi, ban duoc giam $5 cho lan dau. Vui long dua tin nhan nay cho nhan vien khi thanh toan.',
+};
+
+function newCustomerOfferLine(locale) {
+  return NEW_CUSTOMER_OFFER[locale] || NEW_CUSTOMER_OFFER.en;
+}
+
 function getTwilioClient() {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
@@ -39,7 +57,7 @@ async function sendSms(to, body) {
   return client.messages.create({ from, to: normalized, body });
 }
 
-async function sendBookingConfirm({ name, phone, time, confirmation, technicianName = '', notes = '' }) {
+async function sendBookingConfirm({ name, phone, time, confirmation, technicianName = '', notes = '', isNewCustomer = false, locale = 'en' }) {
   const tpl = await getTemplate('booking_confirm');
   if (!tpl.enabled) return;
   const when = formatNaiveUtcDisplay(time);
@@ -47,7 +65,11 @@ async function sendBookingConfirm({ name, phone, time, confirmation, technicianN
   const technician = technicianName ? ` with ${technicianName}` : '';
   // {notes} = "\nSpecial requests: ..." when non-empty, "" otherwise
   const notesVar = notes ? `\nSpecial requests: ${notes}` : '';
-  const body = renderBody(tpl.body, { name, time: when, salon: SALON, confirmation, technician, notes: notesVar });
+  let body = renderBody(tpl.body, { name, time: when, salon: SALON, confirmation, technician, notes: notesVar });
+  // First-time customer → append the $5-off offer line (their "proof" at checkout).
+  if (isNewCustomer) {
+    body += `\n${newCustomerOfferLine(locale)}`;
+  }
   await sendSms(phone, body);
 }
 
