@@ -95,13 +95,21 @@ exports.createTerminalPaymentIntent = async (req, res) => {
     // captureTerminalPaymentIntent). Card network không hỗ trợ manual sẽ tự rơi về
     // 'automatic' nên vẫn an toàn nếu app không truyền capture_method.
     const allowedCaptureMethods = ['automatic', 'manual', 'manual_preferred'];
-    const intent = await stripe.paymentIntents.create({
+    const requested = allowedCaptureMethods.includes(capture_method) ? capture_method : 'automatic';
+    const params = {
       amount: Math.round(Number(amount_cents)),
       currency: 'usd',
       description: description || 'Nail salon — terminal',
       payment_method_types: ['card_present'],
-      capture_method: allowedCaptureMethods.includes(capture_method) ? capture_method : 'automatic',
-    });
+    };
+    if (requested === 'manual_preferred') {
+      // manual_preferred chỉ hợp lệ trong payment_method_options.card_present,
+      // KHÔNG phải capture_method cấp cao nhất (Stripe API ≥ 2025-11-17)
+      params.payment_method_options = { card_present: { capture_method: 'manual_preferred' } };
+    } else {
+      params.capture_method = requested;
+    }
+    const intent = await stripe.paymentIntents.create(params);
     res.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id });
   } catch (err) {
     console.error('[stripe-terminal] createTerminalPaymentIntent error:', err.message);
