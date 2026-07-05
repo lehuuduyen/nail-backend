@@ -7,6 +7,7 @@ const { sendSms, normalizeE164, NEW_CUSTOMER_OFFER } = require('../services/smsS
 // so the admin textareas always show the line that will actually be sent).
 const newCustomerOfferPayload = (s) => ({
   newCustomerOfferEnabled: s.newCustomerOfferEnabled !== false,
+  promoCountdownEnabled: s.promoCountdownEnabled === true,
   newCustomerOfferEn: s.newCustomerOfferEn || NEW_CUSTOMER_OFFER.en,
   newCustomerOfferEs: s.newCustomerOfferEs || NEW_CUSTOMER_OFFER.es,
   newCustomerOfferVi: s.newCustomerOfferVi || NEW_CUSTOMER_OFFER.vi,
@@ -81,6 +82,7 @@ router.put('/settings', async (req, res, next) => {
     const {
       eodTime, birthdayTime, eodEnabled, birthdayEnabled, managerPhones, timezone,
       newCustomerOfferEnabled, newCustomerOfferEn, newCustomerOfferEs, newCustomerOfferVi,
+      promoCountdownEnabled,
     } = req.body;
     let settings = await SmsSettings.findOne({ where: { id: 1 } });
     if (!settings) settings = await SmsSettings.create({ id: 1 });
@@ -92,6 +94,7 @@ router.put('/settings', async (req, res, next) => {
     if (managerPhones !== undefined) updates.managerPhone = joinPhones(managerPhones);
     if (timezone !== undefined) updates.timezone = timezone;
     if (newCustomerOfferEnabled !== undefined) updates.newCustomerOfferEnabled = !!newCustomerOfferEnabled;
+    if (promoCountdownEnabled !== undefined) updates.promoCountdownEnabled = !!promoCountdownEnabled;
     // Store overrides as-is; blank → null so it falls back to the code default.
     if (newCustomerOfferEn !== undefined) updates.newCustomerOfferEn = newCustomerOfferEn?.trim() || null;
     if (newCustomerOfferEs !== undefined) updates.newCustomerOfferEs = newCustomerOfferEs?.trim() || null;

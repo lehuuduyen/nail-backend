@@ -57,7 +57,10 @@ function getSalonInfo(req, res) {
 async function getNewCustomerOffer(req, res, next) {
   try {
     const settings = await SmsSettings.findOne({ where: { id: 1 } });
-    res.json({ enabled: settings?.newCustomerOfferEnabled !== false });
+    res.json({
+      enabled: settings?.newCustomerOfferEnabled !== false,
+      countdownEnabled: settings?.promoCountdownEnabled === true,
+    });
   } catch (err) {
     next(err);
   }

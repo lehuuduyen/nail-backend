@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "4c65041c-00c3-4270-8ccb-403006660bcd"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.lehuuduyen.nailbackend",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
