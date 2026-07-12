@@ -16,8 +16,8 @@ module.exports = (sequelize) => {
       // website promo display) + optional per-locale text overrides (null = use the
       // built-in default line in smsService).
       newCustomerOfferEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
-      // FOMO countdown on the website promo ("offer ends Sunday" — rolls over
-      // weekly, salon timezone). Only shown when the offer itself is enabled.
+      // FOMO countdown on the website promo ("offer ends tonight" — rolls over
+      // daily at midnight salon time). Only shown when the offer itself is enabled.
       promoCountdownEnabled: { type: DataTypes.BOOLEAN, defaultValue: false },
       newCustomerOfferEn: { type: DataTypes.TEXT, allowNull: true },
       newCustomerOfferEs: { type: DataTypes.TEXT, allowNull: true },
