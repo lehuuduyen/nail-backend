@@ -1,0 +1,6 @@
+# Railway/Nixpacks build config.
+# sharp cần binary đúng platform (@img/sharp-linux-x64). Lockfile tạo trên Mac
+# vẫn chứa đủ, nhưng npm cũ hay bỏ qua optional deps khác platform → ép cài
+# kèm --include=optional để chắc chắn.
+[phases.install]
+cmds = ["npm ci --include=optional"]
