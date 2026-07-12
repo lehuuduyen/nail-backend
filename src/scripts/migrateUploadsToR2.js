@@ -60,7 +60,7 @@ async function uploadFolder(folder) {
 
 /** Đổi mọi URL dạng http(s)://<host-cũ>/uploads/... → <R2_PUBLIC_URL>/uploads/... */
 async function updateDb() {
-  const sequelize = require('../config/database');
+  const { sequelize } = require('../config/database');
   const publicUrl = process.env.R2_PUBLIC_URL.replace(/\/$/, '');
 
   const updates = [

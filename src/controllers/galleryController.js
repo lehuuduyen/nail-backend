@@ -2,7 +2,52 @@ const path = require('path');
 const axios = require('axios');
 const { Gallery } = require('../models');
 const { syncInstagram, parseUsername } = require('../scripts/syncInstagramGallery');
-const { storeUpload, storeBuffer, deleteByUrl } = require('../services/r2Storage');
+const { storeUpload, storeBuffer, deleteByUrl, isR2Configured, listObjects } = require('../services/r2Storage');
+
+const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)$/i;
+const GALLERY_PREFIX = 'uploads/gallery/';
+// Ảnh upload thẳng lên R2 (không qua API) nên không có sự kiện để bust cache
+// → cache theo thời gian. Đổi bằng env GALLERY_CACHE_TTL (giây), mặc định 300s.
+const CACHE_TTL_MS = (parseInt(process.env.GALLERY_CACHE_TTL, 10) || 300) * 1000;
+let _galleryCache = { at: 0, items: [] };
+
+/**
+ * Quét toàn bộ ảnh trong folder gallery trên R2.
+ * Category lấy theo đường dẫn: uploads/gallery/<category>/<file> → <category>.
+ * File nằm thẳng trong uploads/gallery/ → 'other'. Sắp xếp mới nhất trước.
+ */
+async function loadGalleryItems() {
+  const objects = await listObjects(GALLERY_PREFIX);
+  return objects
+    .filter((o) => IMAGE_EXT.test(o.key))
+    .map((o) => {
+      const rel = o.key.slice(GALLERY_PREFIX.length);
+      const slash = rel.indexOf('/');
+      const category = slash > 0 ? rel.slice(0, slash) : 'other';
+      return {
+        id: o.key,
+        imageUrl: o.url,
+        thumbnailUrl: o.url,
+        title: null,
+        description: null,
+        category,
+        isActive: true,
+        displayOrder: 0,
+        createdAt: o.lastModified,
+        updatedAt: o.lastModified,
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+/** Trả danh sách ảnh gallery, dùng cache TTL. fresh=true để nạp lại ngay. */
+async function getGalleryItems({ fresh = false } = {}) {
+  if (!fresh && Date.now() - _galleryCache.at < CACHE_TTL_MS) {
+    return _galleryCache.items;
+  }
+  _galleryCache = { at: Date.now(), items: await loadGalleryItems() };
+  return _galleryCache.items;
+}
 
 async function listAdmin(req, res, next) {
   try {
@@ -25,6 +70,18 @@ async function list(req, res, next) {
     const limit =
       Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 120) : null;
 
+    // Hiển thị gallery: quét thẳng folder gallery trên R2 (có cache TTL).
+    // Category lấy theo folder trên R2, không phụ thuộc DB. ?fresh=1 để nạp lại.
+    if (isR2Configured()) {
+      let items = await getGalleryItems({ fresh: req.query.fresh === '1' });
+      if (category && category !== 'all') {
+        items = items.filter((it) => it.category === category);
+      }
+      if (limit) items = items.slice(0, limit);
+      return res.json(items);
+    }
+
+    // R2 chưa config: giữ nguyên hành vi cũ (đọc từ DB).
     const where = { isActive: true };
     if (category && category !== 'all') {
       where.category = category;

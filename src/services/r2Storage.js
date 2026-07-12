@@ -5,6 +5,7 @@ const {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
 } = require('@aws-sdk/client-s3');
 
 /**
@@ -142,6 +143,37 @@ async function storeUpload(file, folder, { maxWidth } = {}) {
   return url;
 }
 
+/**
+ * Liệt kê object trong bucket theo prefix (vd 'uploads/gallery/').
+ * Trả về [{ key, url, size, lastModified }] — tự phân trang (>1000 file).
+ * Trả [] khi R2 chưa config.
+ */
+async function listObjects(prefix) {
+  if (!isR2Configured()) return [];
+  const out = [];
+  let ContinuationToken;
+  do {
+    const res = await client().send(
+      new ListObjectsV2Command({
+        Bucket: process.env.R2_BUCKET,
+        Prefix: prefix,
+        ContinuationToken,
+      })
+    );
+    for (const obj of res.Contents || []) {
+      if (!obj.Key || obj.Key.endsWith('/') || !obj.Size) continue;
+      out.push({
+        key: obj.Key,
+        url: `${R2_PUBLIC_URL}/${obj.Key}`,
+        size: obj.Size,
+        lastModified: obj.LastModified,
+      });
+    }
+    ContinuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (ContinuationToken);
+  return out;
+}
+
 /** Xoá ảnh theo URL đã lưu trong DB — nhận diện R2 hay local tự xử lý. */
 async function deleteByUrl(url) {
   if (!url) return;
@@ -158,4 +190,4 @@ async function deleteByUrl(url) {
   await fs.unlink(localPath).catch(() => {});
 }
 
-module.exports = { isR2Configured, storeBuffer, storeUpload, deleteByUrl, putObject };
+module.exports = { isR2Configured, storeBuffer, storeUpload, deleteByUrl, putObject, listObjects };
