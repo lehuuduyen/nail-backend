@@ -1,11 +1,8 @@
 const path = require('path');
-const fs = require('fs').promises;
 const axios = require('axios');
 const { Gallery } = require('../models');
 const { syncInstagram, parseUsername } = require('../scripts/syncInstagramGallery');
-
-const PUBLIC_BASE =
-  process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 5001}`;
+const { storeUpload, storeBuffer, deleteByUrl } = require('../services/r2Storage');
 
 async function listAdmin(req, res, next) {
   try {
@@ -53,8 +50,7 @@ async function create(req, res, next) {
       e.status = 400;
       throw e;
     }
-    const rel = `/uploads/gallery/${req.file.filename}`;
-    const imageUrl = `${PUBLIC_BASE}${rel}`;
+    const imageUrl = await storeUpload(req.file, 'gallery', { maxWidth: 1600 });
     const {
       title,
       description,
@@ -113,17 +109,7 @@ async function remove(req, res, next) {
       e.status = 404;
       throw e;
     }
-    const urlPath = row.imageUrl.replace(/^https?:\/\/[^/]+/, '');
-    const localPath = path.join(
-      __dirname,
-      '../../public',
-      urlPath.replace(/^\//, '')
-    );
-    try {
-      await fs.unlink(localPath);
-    } catch {
-      /* ignore */
-    }
+    await deleteByUrl(row.imageUrl);
     await row.destroy();
     res.status(204).send();
   } catch (err) {
@@ -188,13 +174,10 @@ async function createFromUrl(req, res, next) {
           ? '.webp'
           : '.jpg';
 
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    const uploadDir = path.join(__dirname, '../../public/uploads/gallery');
-    await fs.mkdir(uploadDir, { recursive: true });
-    await fs.writeFile(path.join(uploadDir, filename), response.data);
-
-    const rel = `/uploads/gallery/${filename}`;
-    const imageUrl = `${PUBLIC_BASE}${rel}`;
+    const imageUrl = await storeBuffer(Buffer.from(response.data), 'gallery', {
+      ext,
+      maxWidth: 1600,
+    });
 
     const row = await Gallery.create({
       imageUrl,

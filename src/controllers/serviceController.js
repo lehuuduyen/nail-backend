@@ -85,10 +85,9 @@ async function uploadImage(req, res, next) {
       e.status = 400;
       throw e;
     }
-    const publicBase =
-      process.env.PUBLIC_BASE_URL ||
-      `http://localhost:${process.env.PORT || 5001}`;
-    const imageUrl = `${publicBase.replace(/\/$/, '')}/uploads/services/${req.file.filename}`;
+    const { storeUpload, deleteByUrl } = require('../services/r2Storage');
+    const imageUrl = await storeUpload(req.file, 'services', { maxWidth: 1600 });
+    if (row.imageUrl && row.imageUrl !== imageUrl) await deleteByUrl(row.imageUrl);
     await row.update({ imageUrl });
     res.json(row);
   } catch (err) {

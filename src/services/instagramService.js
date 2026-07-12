@@ -1,10 +1,6 @@
 const axios = require('axios');
-const fs = require('fs');
-const fsPromises = require('fs').promises;
-const path = require('path');
 
 const IG_APP_ID = '936619743392459';
-const UPLOAD_DIR = path.join(__dirname, '../../public/uploads/gallery');
 
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -124,14 +120,8 @@ async function fetchProfilePosts(username, sessionId = null, limit = 30) {
   );
 }
 
-/**
- * Download a remote image and save it to the gallery upload dir.
- * Returns the saved filename.
- */
-async function downloadImage(imageUrl) {
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  }
+/** Download a remote image to a buffer — storage (R2/disk) is the caller's job. */
+async function downloadImageBuffer(imageUrl) {
   const res = await axios.get(imageUrl, {
     responseType: 'arraybuffer',
     timeout: 30000,
@@ -140,10 +130,7 @@ async function downloadImage(imageUrl) {
       Referer: 'https://www.instagram.com/',
     },
   });
-
-  const filename = `ig-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-  await fsPromises.writeFile(path.join(UPLOAD_DIR, filename), res.data);
-  return filename;
+  return Buffer.from(res.data);
 }
 
-module.exports = { fetchProfilePosts, downloadImage };
+module.exports = { fetchProfilePosts, downloadImageBuffer };

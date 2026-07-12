@@ -119,8 +119,9 @@ async function uploadAvatar(req, res, next) {
       e.status = 400;
       throw e;
     }
-    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+    const { storeUpload, deleteByUrl } = require('../services/r2Storage');
+    const avatarUrl = await storeUpload(req.file, 'avatars', { maxWidth: 512 });
+    if (row.avatarUrl && row.avatarUrl !== avatarUrl) await deleteByUrl(row.avatarUrl);
     await row.update({ avatarUrl });
     res.json({ avatarUrl });
   } catch (err) {

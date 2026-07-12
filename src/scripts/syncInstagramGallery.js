@@ -15,7 +15,8 @@
  */
 require('dotenv').config();
 
-const { fetchProfilePosts, downloadImage } = require('../services/instagramService');
+const { fetchProfilePosts, downloadImageBuffer } = require('../services/instagramService');
+const { storeBuffer } = require('../services/r2Storage');
 
 async function syncInstagram(username, category = 'nails', limit = 30) {
   // Lazy-load DB models so script can also be imported by cron
@@ -40,9 +41,13 @@ async function syncInstagram(username, category = 'nails', limit = 30) {
         continue;
       }
 
-      const filename = await downloadImage(post.imageUrl);
-      const publicBase = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 5001}`;
-      const imageUrl = `${publicBase}/uploads/gallery/${filename}`;
+      const buffer = await downloadImageBuffer(post.imageUrl);
+      const baseName = `ig-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const imageUrl = await storeBuffer(buffer, 'gallery', {
+        baseName,
+        ext: '.jpg',
+        maxWidth: 1600,
+      });
 
       await Gallery.create({
         imageUrl,
@@ -56,7 +61,7 @@ async function syncInstagram(username, category = 'nails', limit = 30) {
       });
 
       added++;
-      console.log(`[Instagram] ✓ Saved: ${filename}`);
+      console.log(`[Instagram] ✓ Saved: ${imageUrl}`);
 
       // Polite delay between downloads
       await new Promise((r) => setTimeout(r, 800));
