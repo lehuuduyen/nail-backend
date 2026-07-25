@@ -7,6 +7,7 @@ router.use('/auth', require('./auth'));
 router.use('/voice', require('./voice'));
 router.use('/public', require('./public'));
 router.use('/gallery', require('./gallery'));
+router.use('/login-error-logs', require('./loginErrorLogs'));
 router.use('/videos', require('./videos'));
 router.use('/promos', require('./promos'));
 router.use('/blog', authMiddleware, require('./blog'));

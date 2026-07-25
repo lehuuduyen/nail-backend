@@ -19,3 +19,9 @@ exports.publicAvailabilityGet = limiter({
   max: Math.max(20, parseInt(process.env.RATE_LIMIT_AVAILABILITY_MAX || '120', 10) || 120),
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+exports.loginErrorLogPost = limiter({
+  windowMs: 15 * 60 * 1000,
+  max: Math.max(10, parseInt(process.env.RATE_LIMIT_LOGIN_ERROR_LOG_MAX || '60', 10) || 60),
+  message: { error: 'Too many requests. Please slow down.' },
+});
