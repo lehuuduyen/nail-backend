@@ -44,6 +44,7 @@ async function create(req, res, next) {
       serviceId,
       amount,
       serviceAmount,
+      serviceAmountNet,
       tips = 0,
       paymentMethod,
       date,
@@ -105,12 +106,20 @@ async function create(req, res, next) {
       throw e;
     }
 
+    const netAmount = serviceAmountNet == null ? null : Number(serviceAmountNet);
+    if (netAmount != null && (!Number.isFinite(netAmount) || netAmount < 0)) {
+      const e = new Error('Invalid serviceAmountNet');
+      e.status = 400;
+      throw e;
+    }
+
     const row = await Txn.create({
       appointmentId: appointmentId || null,
       employeeId,
       serviceId,
       amount,
       serviceAmount: grossAmount,
+      serviceAmountNet: netAmount,
       tips,
       paymentMethod,
       date: dateStr,
@@ -185,6 +194,7 @@ async function update(req, res, next) {
       serviceId,
       amount,
       serviceAmount,
+      serviceAmountNet,
       tips,
       paymentMethod,
       date,
@@ -200,6 +210,15 @@ async function update(req, res, next) {
         throw e;
       }
       patch.serviceAmount = grossAmount;
+    }
+    if (serviceAmountNet !== undefined) {
+      const netAmount = serviceAmountNet == null ? null : Number(serviceAmountNet);
+      if (netAmount != null && (!Number.isFinite(netAmount) || netAmount < 0)) {
+        const e = new Error('Invalid serviceAmountNet');
+        e.status = 400;
+        throw e;
+      }
+      patch.serviceAmountNet = netAmount;
     }
     if (employeeId != null) {
       const eid = Number(employeeId);
