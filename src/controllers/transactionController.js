@@ -44,7 +44,6 @@ async function create(req, res, next) {
       serviceId,
       amount,
       serviceAmount,
-      serviceAmountNet,
       tips = 0,
       paymentMethod,
       date,
@@ -99,16 +98,9 @@ async function create(req, res, next) {
 
     const turnNumber = await nextTurnNumberForDate(dateStr);
 
-    const grossAmount = serviceAmount == null ? null : Number(serviceAmount);
+    const grossAmount = serviceAmount == null || String(serviceAmount).trim() === '' ? null : Number(serviceAmount);
     if (grossAmount != null && (!Number.isFinite(grossAmount) || grossAmount < 0)) {
       const e = new Error('Invalid serviceAmount');
-      e.status = 400;
-      throw e;
-    }
-
-    const netAmount = serviceAmountNet == null ? null : Number(serviceAmountNet);
-    if (netAmount != null && (!Number.isFinite(netAmount) || netAmount < 0)) {
-      const e = new Error('Invalid serviceAmountNet');
       e.status = 400;
       throw e;
     }
@@ -119,7 +111,6 @@ async function create(req, res, next) {
       serviceId,
       amount,
       serviceAmount: grossAmount,
-      serviceAmountNet: netAmount,
       tips,
       paymentMethod,
       date: dateStr,
@@ -194,7 +185,6 @@ async function update(req, res, next) {
       serviceId,
       amount,
       serviceAmount,
-      serviceAmountNet,
       tips,
       paymentMethod,
       date,
@@ -202,23 +192,14 @@ async function update(req, res, next) {
     } = req.body;
 
     const patch = {};
-    if (serviceAmount != null) {
-      const grossAmount = Number(serviceAmount);
-      if (!Number.isFinite(grossAmount) || grossAmount < 0) {
+    if (serviceAmount !== undefined) {
+      const grossAmount = serviceAmount == null || String(serviceAmount).trim() === '' ? null : Number(serviceAmount);
+      if (grossAmount != null && (!Number.isFinite(grossAmount) || grossAmount < 0)) {
         const e = new Error('Invalid serviceAmount');
         e.status = 400;
         throw e;
       }
       patch.serviceAmount = grossAmount;
-    }
-    if (serviceAmountNet !== undefined) {
-      const netAmount = serviceAmountNet == null ? null : Number(serviceAmountNet);
-      if (netAmount != null && (!Number.isFinite(netAmount) || netAmount < 0)) {
-        const e = new Error('Invalid serviceAmountNet');
-        e.status = 400;
-        throw e;
-      }
-      patch.serviceAmountNet = netAmount;
     }
     if (employeeId != null) {
       const eid = Number(employeeId);

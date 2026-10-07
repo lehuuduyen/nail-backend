@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { grossServiceAmount, netServiceAmount, serviceLineFromNotes } = require('../utils/serviceAmount');
+const { grossServiceAmount, serviceLineFromNotes } = require('../utils/serviceAmount');
 const { Transaction, Employee, Appointment, Service } = require('../models');
 const { scheduledAtOnSalonDateLiteral } = require('../utils/salonAppointmentDay');
 
@@ -202,8 +202,8 @@ async function getCheckTurnColumns(req, res, next) {
       const row = employeeGroups.get(key);
       const price = grossServiceAmount(txn);
       row.serviceTotal += price;
-      if (netServiceAmount(txn) >= 25) row.turns += 1;
-      const name = serviceLineFromNotes(txn.notes, txn.ticketId)?.name;
+      if (price >= 25) row.turns += 1;
+      const name = serviceLineFromNotes(txn.notes)?.name;
       row.services.push({ name: name || txn.Service?.name || '—', price });
     }
 

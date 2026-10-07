@@ -2,9 +2,7 @@ const { num, salesExcludingTips } = require('./transactionAmounts');
 
 // Owner edits and split payments append payment metadata after the POS line.
 // Never interpret those amounts (especially disc/tip) as a service price.
-function serviceLineFromNotes(notes, ticketId) {
-  // Only POS ticket lines have this format; admin/owner notes are free text.
-  if (ticketId == null) return null;
+function serviceLineFromNotes(notes) {
   if (typeof notes !== 'string') return null;
   const line = notes.split(/\s*·\s*(?=(?:card|cash|gift|check|disc|split|tip)\s*:)|\s*\|\s*split\s*:/i)[0].trim();
   const separator = line.lastIndexOf(':');
@@ -18,21 +16,13 @@ function serviceLineFromNotes(notes, ticketId) {
 
 function grossServiceAmount(txn) {
   const amount = Number(txn.serviceAmount);
-  // An explicit zero is a valid listed price, not missing historical data.
+  // Zero/missing metadata uses the legacy service-price fallback.
   if (txn.serviceAmount != null && txn.serviceAmount !== '' &&
-      Number.isFinite(amount) && amount >= 0) return num(amount);
+      Number.isFinite(amount) && amount > 0) return num(amount);
 
-  const line = serviceLineFromNotes(txn.notes, txn.ticketId);
+  const line = serviceLineFromNotes(txn.notes);
   if (line) return line.price;
   return salesExcludingTips(txn);
 }
 
-// Old clients have no net-price metadata: preserve their historical fallback.
-function netServiceAmount(txn) {
-  const amount = Number(txn.serviceAmountNet);
-  if (txn.serviceAmountNet != null && txn.serviceAmountNet !== '' &&
-      Number.isFinite(amount) && amount >= 0) return num(amount);
-  return grossServiceAmount(txn);
-}
-
-module.exports = { grossServiceAmount, netServiceAmount, serviceLineFromNotes };
+module.exports = { grossServiceAmount, serviceLineFromNotes };
