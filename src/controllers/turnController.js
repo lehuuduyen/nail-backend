@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { grossServiceAmount, serviceLineFromNotes } = require('../utils/serviceAmount');
 const { Transaction, Employee, Appointment, Service } = require('../models');
 const { scheduledAtOnSalonDateLiteral } = require('../utils/salonAppointmentDay');
 
@@ -7,8 +8,6 @@ function parseYmd(q) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
   return s;
 }
-
-const { grossServiceAmount } = require('../utils/serviceAmount');
 
 const notRefunded = { [Op.ne]: 'refunded' };
 
@@ -181,8 +180,12 @@ async function getCheckTurnColumns(req, res, next) {
     });
     const groups = new Map(employees.map((emp) => [emp.id, new Map()]));
     for (const txn of transactions) {
+      if (!groups.has(txn.employeeId)) {
+        // Historical sales still belong in the report after a tech is deactivated.
+        employees.push(txn.Employee || { id: txn.employeeId });
+        groups.set(txn.employeeId, new Map());
+      }
       const employeeGroups = groups.get(txn.employeeId);
-      if (!employeeGroups) continue;
       const key = txn.ticketId == null ? `transaction:${txn.id}` : `ticket:${txn.ticketId}`;
       if (!employeeGroups.has(key)) {
         employeeGroups.set(key, {
@@ -200,9 +203,7 @@ async function getCheckTurnColumns(req, res, next) {
       const price = grossServiceAmount(txn);
       row.serviceTotal += price;
       if (price >= 25) row.turns += 1;
-      const notes = typeof txn.notes === 'string' ? txn.notes : '';
-      const separator = notes.lastIndexOf(':');
-      const name = separator >= 0 ? notes.slice(0, separator).trim() : '';
+      const name = serviceLineFromNotes(txn.notes)?.name;
       row.services.push({ name: name || txn.Service?.name || '—', price });
     }
 

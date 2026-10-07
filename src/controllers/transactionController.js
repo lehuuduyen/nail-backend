@@ -192,13 +192,15 @@ async function update(req, res, next) {
     } = req.body;
 
     const patch = {};
-    const grossAmount = serviceAmount == null ? null : Number(serviceAmount);
-    if (grossAmount != null && (!Number.isFinite(grossAmount) || grossAmount < 0)) {
-      const e = new Error('Invalid serviceAmount');
-      e.status = 400;
-      throw e;
+    if (serviceAmount != null) {
+      const grossAmount = Number(serviceAmount);
+      if (!Number.isFinite(grossAmount) || grossAmount < 0) {
+        const e = new Error('Invalid serviceAmount');
+        e.status = 400;
+        throw e;
+      }
+      patch.serviceAmount = grossAmount;
     }
-    patch.serviceAmount = grossAmount;
     if (employeeId != null) {
       const eid = Number(employeeId);
       if (!Number.isFinite(eid) || eid < 1) {
