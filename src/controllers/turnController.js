@@ -178,15 +178,17 @@ async function getCheckTurnColumns(req, res, next) {
       include: [Employee, Service],
       order: [['createdAt', 'ASC'], ['id', 'ASC']],
     });
-    const groups = new Map(employees.map((emp) => [emp.id, new Map()]));
+    // Match serialized IDs as well as Sequelize numeric IDs to the same column.
+    const groups = new Map(employees.map((emp) => [String(emp.id), new Map()]));
     const serviceRows = new Map();
     for (const txn of transactions) {
-      if (!groups.has(txn.employeeId)) {
+      const employeeKey = String(txn.employeeId);
+      if (!groups.has(employeeKey)) {
         // Historical sales still belong in the report after a tech is deactivated.
         employees.push(txn.Employee || { id: txn.employeeId });
-        groups.set(txn.employeeId, new Map());
+        groups.set(employeeKey, new Map());
       }
-      const employeeGroups = groups.get(txn.employeeId);
+      const employeeGroups = groups.get(employeeKey);
       const key = txn.ticketId == null ? `transaction:${txn.id}` : `ticket:${txn.ticketId}`;
       if (!employeeGroups.has(key)) {
         employeeGroups.set(key, {
@@ -208,8 +210,8 @@ async function getCheckTurnColumns(req, res, next) {
       const service = { name: name || txn.Service?.name || '—', price };
       row.services.push(service);
       // Keep ticket rows compatible; clients can render one service per line.
-      if (!serviceRows.has(txn.employeeId)) serviceRows.set(txn.employeeId, []);
-      serviceRows.get(txn.employeeId).push({
+      if (!serviceRows.has(employeeKey)) serviceRows.set(employeeKey, []);
+      serviceRows.get(employeeKey).push({
         id: txn.id,
         serviceTotal: price,
         turns: price >= 25 ? 1 : 0,
@@ -225,7 +227,7 @@ async function getCheckTurnColumns(req, res, next) {
 
     const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
     const columns = employees.map((emp) => {
-      const rows = [...groups.get(emp.id).values()];
+      const rows = [...groups.get(String(emp.id)).values()];
       const totalAmount = roundMoney(rows.reduce((sum, row) => sum + row.serviceTotal, 0));
       for (const row of rows) {
         row.serviceTotal = roundMoney(row.serviceTotal);
@@ -234,14 +236,14 @@ async function getCheckTurnColumns(req, res, next) {
       }
       return {
         employeeId: emp.id,
-        name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || '—',
+        name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.nickName || '—',
         firstName: emp.firstName,
         lastName: emp.lastName,
         nickname: emp.nickName || null,
         turns: rows.reduce((sum, row) => sum + row.turns, 0),
         totalAmount,
         rows,
-        serviceRows: (serviceRows.get(emp.id) || []).map((row) => ({
+        serviceRows: (serviceRows.get(String(emp.id)) || []).map((row) => ({
           ...row,
           serviceTotal: roundMoney(row.serviceTotal),
           services: row.services.map((service) => ({ ...service, price: roundMoney(service.price) })),
