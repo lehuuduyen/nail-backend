@@ -179,6 +179,7 @@ async function getCheckTurnColumns(req, res, next) {
       order: [['createdAt', 'ASC'], ['id', 'ASC']],
     });
     const groups = new Map(employees.map((emp) => [emp.id, new Map()]));
+    const serviceRows = new Map();
     for (const txn of transactions) {
       if (!groups.has(txn.employeeId)) {
         // Historical sales still belong in the report after a tech is deactivated.
@@ -204,7 +205,22 @@ async function getCheckTurnColumns(req, res, next) {
       row.serviceTotal += price;
       if (price >= 25) row.turns += 1;
       const name = serviceLineFromNotes(txn.notes)?.name;
-      row.services.push({ name: name || txn.Service?.name || '—', price });
+      const service = { name: name || txn.Service?.name || '—', price };
+      row.services.push(service);
+      // Keep ticket rows compatible; clients can render one service per line.
+      if (!serviceRows.has(txn.employeeId)) serviceRows.set(txn.employeeId, []);
+      serviceRows.get(txn.employeeId).push({
+        id: txn.id,
+        serviceTotal: price,
+        turns: price >= 25 ? 1 : 0,
+        time: txn.createdAt,
+        ticketId: txn.ticketId ?? null,
+        turnNumber: txn.turnNumber ?? null,
+        turnType: txn.turnType,
+        services: [service],
+        customer: { id: txn.customerId ?? null, phone: txn.customerPhone ?? null },
+        hasDetails: true,
+      });
     }
 
     const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -214,6 +230,7 @@ async function getCheckTurnColumns(req, res, next) {
       for (const row of rows) {
         row.serviceTotal = roundMoney(row.serviceTotal);
         row.services = row.services.map((service) => ({ ...service, price: roundMoney(service.price) }));
+        row.hasDetails = row.services.length > 0;
       }
       return {
         employeeId: emp.id,
@@ -224,6 +241,12 @@ async function getCheckTurnColumns(req, res, next) {
         turns: rows.reduce((sum, row) => sum + row.turns, 0),
         totalAmount,
         rows,
+        serviceRows: (serviceRows.get(emp.id) || []).map((row) => ({
+          ...row,
+          serviceTotal: roundMoney(row.serviceTotal),
+          services: row.services.map((service) => ({ ...service, price: roundMoney(service.price) })),
+        })),
+        hasDetails: rows.length > 0,
       };
     });
     res.json({ success: true, date: dateStr, columns, total: columns.reduce((sum, col) => sum + col.turns, 0) });
