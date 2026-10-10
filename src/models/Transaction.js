@@ -33,6 +33,11 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+      serviceAmount: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+        comment: 'gia dich vu niem yet (price x qty) truoc tip/thue/phi/giam gia',
+      },
       tips: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
